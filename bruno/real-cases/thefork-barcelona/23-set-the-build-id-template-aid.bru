@@ -1,0 +1,33 @@
+meta {
+  name: Set the build id template aid
+  type: http
+  seq: 23
+}
+
+put {
+  url: {{baseUrl}}/api/templates/{{theforkBuildIdTemplateId}}/aid
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "render_mode": "none",
+    "ttl": 30,
+    "rate_limit_id": "{{theforkRateLimitId}}",
+    "success_codes": [
+      "404"
+    ]
+  }
+}
+
+tests {
+  test("returns 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}
+
+docs {
+  `success_codes: ["404"]`: the page is meant to be missing, so 404 is
+  this request's success (and any other status fails it).
+}

@@ -1,0 +1,42 @@
+meta {
+  name: Login as admin
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{adminEmail}}",
+    "password": "{{adminPassword}}"
+  }
+}
+
+script:pre-request {
+  // A fresh suffix per run, so the collection can be run again without
+  // "Email already taken".
+  const runId = Date.now().toString(36);
+  bru.setEnvVar("runId", runId);
+  for (const name of ["ana", "bernat", "carla", "david"]) {
+    bru.setEnvVar(`${name}Email`, `${name}.${runId}@example.com`);
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("token", res.body.access_token);
+}
+
+tests {
+  test("returns 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}
+
+docs {
+  Logs in as the seeded admin and prepares unique emails for this run.
+}

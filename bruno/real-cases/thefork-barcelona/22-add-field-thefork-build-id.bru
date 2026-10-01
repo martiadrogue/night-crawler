@@ -1,0 +1,31 @@
+meta {
+  name: Add field thefork_build_id
+  type: http
+  seq: 22
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{theforkBuildIdTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(substring-before(substring-after(//script[@id='__NEXT_DATA__'], '\"buildId\":\"'), '\"'))",
+    "type": "value",
+    "title": "thefork_build_id"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  XPath string functions cut the build id out of the page's
+  `__NEXT_DATA__` JSON (`"buildId":"…"`). The parentheses make the engine
+  read the path as XPath.
+}

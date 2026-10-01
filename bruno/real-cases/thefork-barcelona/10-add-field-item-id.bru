@@ -1,0 +1,30 @@
+meta {
+  name: Add field item_id
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{theforkListingTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "id",
+    "type": "value",
+    "title": "item_id",
+    "parent_selector_id": "{{theforkIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  TheFork's own restaurant id (a UUID).
+}

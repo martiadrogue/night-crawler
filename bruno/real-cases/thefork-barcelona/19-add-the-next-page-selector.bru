@@ -1,0 +1,34 @@
+meta {
+  name: Add the next page selector
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{theforkListingTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "pageProps.searchPageResultsFetchResult.pagination.hasNext && sum([pageProps.searchPageResultsFetchResult.pagination.currentPage, `1`]) || null",
+    "type": "value",
+    "title": "next_page"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The next page number, or nothing on the last page: JMESPath has no `+`,
+  so `sum([currentPage, `1`])` adds one, and `hasNext && ... || null`
+  empties it once `hasNext` is false. Titled after the listing URL's
+  `{{next_page}}` placeholder and outside the iterator, it makes the
+  template repeat: the first request sends `?p=` (page 1), each response
+  names the next page, and the run stops when none comes back.
+}

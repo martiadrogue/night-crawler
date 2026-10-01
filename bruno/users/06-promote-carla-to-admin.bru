@@ -1,0 +1,23 @@
+meta {
+  name: Promote Carla to admin
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{baseUrl}}/api/users/{{carlaId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "role": "admin"
+  }
+}
+
+tests {
+  test("returns 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}

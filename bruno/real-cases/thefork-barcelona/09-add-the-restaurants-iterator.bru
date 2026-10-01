@@ -1,0 +1,32 @@
+meta {
+  name: Add the restaurants iterator
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{theforkListingTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "pageProps.searchPageResultsFetchResult.list[].restaurant",
+    "type": "iterator"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("theforkIteratorId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  One venue row per restaurant of the page's search results.
+}

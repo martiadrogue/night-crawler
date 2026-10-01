@@ -1,0 +1,52 @@
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  standard:
+    format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+  access:
+    class: uvicorn.logging.AccessFormatter
+    format: "%(asctime)s [%(levelname)s] %(client_addr)s - '%(request_line)s' %(status_code)s"
+
+handlers:
+  error_file:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: standard
+    filename: /var/log/night_crawler/error.log
+    maxBytes: 10485760 # 10MB file rotation
+    backupCount: 5
+    encoding: utf8
+
+  access_file:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: access
+    filename: /var/log/night_crawler/access.log
+    maxBytes: 10485760 # 10MB file rotation
+    backupCount: 5
+    encoding: utf8
+
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: standard
+    stream: ext://sys.stdout
+
+loggers:
+  uvicorn:
+    handlers: [error_file, console]
+    level: INFO
+    propagate: false
+  uvicorn.error:
+    handlers: [error_file, console]
+    level: INFO
+    propagate: false
+  uvicorn.access:
+    handlers: [access_file, console]
+    level: INFO
+    propagate: false
+  night_crawler:
+    handlers: [error_file, console]
+    level: INFO
+    propagate: false

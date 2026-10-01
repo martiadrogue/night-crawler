@@ -1,0 +1,22 @@
+meta {
+  name: Find the TheFork source
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/sources
+  body: none
+  auth: inherit
+}
+
+script:post-response {
+  const source = res.body.find((item) => item.name === "TheFork");
+  bru.setEnvVar("theforkSourceId", source.id);
+}
+
+tests {
+  test("lists the TheFork source", function () {
+    expect(res.body.map((item) => item.name)).to.include("TheFork");
+  });
+}

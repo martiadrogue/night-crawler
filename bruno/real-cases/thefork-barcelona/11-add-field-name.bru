@@ -1,0 +1,26 @@
+meta {
+  name: Add field name
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{theforkListingTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "name",
+    "type": "value",
+    "title": "name",
+    "parent_selector_id": "{{theforkIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}

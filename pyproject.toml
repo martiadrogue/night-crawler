@@ -1,0 +1,104 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "night-crawler"
+version = "0.1.0"
+description = "FastAPI application with Celery, RabbitMQ, and MongoDB"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "Marti Adrogue", email = "marti.adrogue@gmail.com" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Framework :: FastAPI",
+]
+
+dependencies = [
+    "fastapi>=0.136.0",
+    "pydantic-settings>=2.14.2",
+    "email-validator>=2.2.0",
+    "httpx>=0.28.1",
+    "redis >=5.2.0",
+    "limits>=4.1",
+    "uvicorn[standard]>=0.45.0",
+    "celery[rabbitmq]>=5.6.0",
+    "croniter>=6.0.0",
+    # PyMongo's native asyncio API (`AsyncMongoClient`) replaces Motor.
+    "pymongo>=4.13",
+    "amqp>=5.2.0",
+    "pwdlib[bcrypt]>=0.2.1",
+    "pyjwt>=2.8.0",
+    "lxml>=5.0",
+    # CSS selector paths (`lxml.cssselect`).
+    "cssselect>=1.2",
+    "jmespath>=1.0.1",
+    "playwright>=1.48.0",
+    "patchright>=1.48.0",
+    "anyio>=4.12.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "prometheus-fastapi-instrumentator>=8.0.2",
+    "pytest>=8.0.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.3.0",
+    "black>=24.0.0",
+    "radon>=6.0.1"
+]
+
+[tool.setuptools.package-dir]
+"" = "backend/src"
+
+[tool.setuptools.packages.find]
+where = ["backend/src"]
+
+[tool.ruff]
+extend-exclude = ["frontend/.web"]
+
+[tool.ruff.lint]
+# CONTRIBUTING.md §3.3: Google-style docstrings, 72-column doc lines.
+extend-select = ["D", "W505"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 72
+
+[tool.black]
+extend-exclude = "frontend/\\.web/"
+# Matches the image's Python; inferring from `requires-python` targets
+# unreleased versions and disables the AST safety check.
+target-version = ["py311"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Header",
+    "fastapi.Body"
+]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/tests/**" = ["DTZ001", "D", "W505"]
+"frontend/**" = ["D", "W505"]
+
+[tool.radon]
+exclude = "backend/tests/*,venv/*,build/*,dist/*"
+ignore = "tests,venv"
+cc_min = "A"          # Minimum grade to show (A, B, C, D, E, F)
+show_complexity = true # Equivalent to the -s flag (shows CC score next to grade)
+average = true        # Equivalent to -a (calculates overall average score)
+order = "SCORE"       # Sort output: SCORE (descending complexity), LINES, or ALPHA
+show_mi = true        # Display score details alongside the grade
+
+[tool.pytest.ini_options]
+markers = [
+    "anyio: mark test as async (run via the anyio pytest plugin)",
+]
+testpaths = ["backend/tests"]

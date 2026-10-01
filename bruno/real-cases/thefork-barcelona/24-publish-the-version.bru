@@ -1,0 +1,17 @@
+meta {
+  name: Publish the version
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{baseUrl}}/api/crawlers/{{theforkCrawlerId}}/versions/{{theforkVersionId}}/publish
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}

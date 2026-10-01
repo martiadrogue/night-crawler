@@ -1,0 +1,63 @@
+services:
+  db:
+    restart: on-failure
+
+  rabbitmq:
+    restart: on-failure
+
+  redis:
+    restart: on-failure
+
+  web:
+    build:
+      target: development
+    container_name: fastapi_web_dev
+    restart: on-failure
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/apps/martiadrogue/night-crawler
+      # Host-visible mirror of `dataset_export_dir` (core/config.py), with
+      # its `raw/` and `validated/` CSVs - kept as its own mount rather than
+      # folded into the whole-repo mount above so it survives regardless of
+      # `dataset_export_dir` living outside the repo tree.
+      - ./var/csv:/var/lib/night_crawler/csv
+
+  celery_worker:
+    build:
+      target: development
+    container_name: celery_worker_dev
+    restart: on-failure
+    volumes:
+      - .:/apps/martiadrogue/night-crawler
+      - ./var/csv:/var/lib/night_crawler/csv
+    command: celery -A night_crawler.celery.app worker --loglevel=info -Q discovery,priority,real-time,testing,dataset-import
+
+  celery_beat:
+    build:
+      target: development
+    container_name: celery_beat_dev
+    restart: on-failure
+    volumes:
+      - .:/apps/martiadrogue/night-crawler
+    command: celery -A night_crawler.celery.app beat --loglevel=info --schedule=/tmp/celerybeat-schedule
+
+  frontend:
+    build:
+      target: development
+    container_name: reflex_frontend_dev
+    restart: on-failure
+    ports:
+      - "3000:3000"  # Reflex frontend (Next.js dev server)
+      - "8001:8000"  # Reflex's own backend - remapped since FastAPI `web` already owns host 8000
+    environment:
+      API_BASE_URL: http://web:8000
+      REFLEX_API_URL: http://localhost:8001
+    volumes:
+      # Scoped mounts only (unlike `web`'s whole-repo mount): bind-mounting
+      # the whole frontend/ dir would shadow the image-baked .web/ with the
+      # host's empty one, forcing a full Node/bun re-download on every `up`.
+      - ./frontend/src:/apps/martiadrogue/night-crawler/frontend/src
+      - ./frontend/rxconfig.py:/apps/martiadrogue/night-crawler/frontend/rxconfig.py
+      - ./frontend/assets:/apps/martiadrogue/night-crawler/frontend/assets
+      - ./frontend/tests:/apps/martiadrogue/night-crawler/frontend/tests

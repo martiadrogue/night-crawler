@@ -1,0 +1,26 @@
+meta {
+  name: Add field website
+  type: http
+  seq: 18
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{placesSearchTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "websiteUri",
+    "type": "value",
+    "title": "website",
+    "parent_selector_id": "{{placesIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}

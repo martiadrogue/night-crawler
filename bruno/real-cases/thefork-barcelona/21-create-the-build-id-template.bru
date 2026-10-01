@@ -1,0 +1,38 @@
+meta {
+  name: Create the build id template
+  type: http
+  seq: 21
+}
+
+post {
+  url: {{baseUrl}}/api/crawler-versions/{{theforkVersionId}}/templates
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "action": "GET",
+    "url": "https://www.thefork.es/favicon-missing.ico",
+    "headers": {
+      "Accept": "text/html"
+    }
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("theforkBuildIdTemplateId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  A missing file at the site root is answered by the Next.js 404 page,
+  which is not behind DataDome and embeds the current build id in its
+  `__NEXT_DATA__` script. The listing template uses `{{thefork_build_id}}`,
+  so the engine runs this template first.
+}

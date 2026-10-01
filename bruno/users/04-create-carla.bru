@@ -1,0 +1,32 @@
+meta {
+  name: Create Carla
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/users
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "email": "{{carlaEmail}}",
+    "password": "{{userPassword}}"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("carlaId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Admin-only. New accounts always start as `user`.
+}

@@ -1,0 +1,22 @@
+meta {
+  name: Find the Google Maps source
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/sources
+  body: none
+  auth: inherit
+}
+
+script:post-response {
+  const source = res.body.find((item) => item.name === "Google Maps");
+  bru.setEnvVar("googleMapsSourceId", source.id);
+}
+
+tests {
+  test("lists the Google Maps source", function () {
+    expect(res.body.map((item) => item.name)).to.include("Google Maps");
+  });
+}

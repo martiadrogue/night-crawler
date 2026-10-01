@@ -1,0 +1,26 @@
+meta {
+  name: Add field price_range
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{placesSearchTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "priceLevel",
+    "type": "value",
+    "title": "price_range",
+    "parent_selector_id": "{{placesIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}

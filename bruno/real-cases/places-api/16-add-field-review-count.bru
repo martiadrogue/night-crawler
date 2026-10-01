@@ -1,0 +1,26 @@
+meta {
+  name: Add field review_count
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{placesSearchTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "userRatingCount",
+    "type": "value",
+    "title": "review_count",
+    "parent_selector_id": "{{placesIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}

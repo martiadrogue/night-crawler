@@ -1,0 +1,43 @@
+meta {
+  name: Create crawler
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/crawlers
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "title": "Andorra restaurants - Google Places API",
+    "source_id": "{{googleMapsSourceId}}",
+    "dataset_id": "{{venuesDatasetId}}",
+    "fields": [
+      "item_id",
+      "name",
+      "address",
+      "location",
+      "categories",
+      "rating",
+      "review_count",
+      "price_range",
+      "website",
+      "phone",
+      "source_url",
+      "opening_hours"
+    ]
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("placesCrawlerId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}

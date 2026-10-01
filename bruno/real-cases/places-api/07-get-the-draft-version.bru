@@ -1,0 +1,23 @@
+meta {
+  name: Get the draft version
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/crawlers/{{placesCrawlerId}}/versions
+  body: none
+  auth: inherit
+}
+
+script:post-response {
+  const draft = res.body.find((version) => version.status === "draft");
+  bru.setEnvVar("placesVersionId", draft.id);
+  bru.setEnvVar("placesSearchTemplateId", draft.message_template_root_id);
+}
+
+tests {
+  test("returns 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}

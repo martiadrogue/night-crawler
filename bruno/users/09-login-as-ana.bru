@@ -1,0 +1,28 @@
+meta {
+  name: Login as Ana
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{anaEmail}}",
+    "password": "{{userPassword}}"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("anaToken", res.body.access_token);
+}
+
+tests {
+  test("returns 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}

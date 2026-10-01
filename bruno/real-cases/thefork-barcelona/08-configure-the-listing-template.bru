@@ -1,0 +1,39 @@
+meta {
+  name: Configure the listing template
+  type: http
+  seq: 8
+}
+
+patch {
+  url: {{baseUrl}}/api/templates/{{theforkListingTemplateId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "action": "GET",
+    "url": "https://www.thefork.es/_next/data/{{thefork_build_id}}/es-ES/restaurantes/barcelona-c41710.json?p={{next_page}}",
+    "headers": {
+      "Accept": "application/json",
+      "Accept-Language": "es-ES,es;q=0.9",
+      "x-nextjs-data": "1"
+    }
+  }
+}
+
+tests {
+  test("returns 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}
+
+docs {
+  The listing's Next.js data endpoint: the same JSON the site loads when
+  you change page, 25 restaurants per page. The HTML pages are behind
+  DataDome; this JSON is served to a plain request, so the template runs
+  on httpx. `{{thefork_build_id}}` comes from the build id template
+  (requests 21-23); `{{next_page}}` is harvested by this template itself
+  (request 19), so it repeats page after page until there is no next one.
+  Both are crawler placeholders: Bruno leaves them as written.
+}

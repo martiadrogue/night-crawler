@@ -1,0 +1,30 @@
+meta {
+  name: Add field source_url
+  type: http
+  seq: 18
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{theforkListingTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "join('', ['https://www.thefork.es/restaurante/', slug, '-r', to_string(legacyId)])",
+    "type": "value",
+    "title": "source_url",
+    "parent_selector_id": "{{theforkIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The restaurant's page, built from its slug and legacy id.
+}

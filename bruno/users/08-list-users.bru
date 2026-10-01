@@ -1,0 +1,17 @@
+meta {
+  name: List users
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/users
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}
