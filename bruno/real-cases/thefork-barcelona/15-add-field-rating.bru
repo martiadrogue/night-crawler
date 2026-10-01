@@ -1,0 +1,30 @@
+meta {
+  name: Add field rating
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{theforkListingTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "aggregateRatings.thefork.ratingValue",
+    "type": "value",
+    "title": "rating",
+    "parent_selector_id": "{{theforkIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  TheFork's rating, out of 10 (not out of 5).
+}

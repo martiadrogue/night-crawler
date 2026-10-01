@@ -1,0 +1,34 @@
+meta {
+  name: Create the execution
+  type: http
+  seq: 25
+}
+
+post {
+  url: {{baseUrl}}/api/crawlers/{{theforkCrawlerId}}/executions
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "context": {}
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("theforkExecutionId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Creates a `pending` run with nothing seeded: the run discovers
+  `thefork_build_id` from TheFork's 404 page (requests 21-23) and follows
+  `next_page` from page 1 to the last (request 19). New restaurants, new
+  pages and TheFork redeploys need no change here.
+}

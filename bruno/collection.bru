@@ -1,0 +1,14 @@
+auth {
+  mode: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  Every request inherits this bearer auth unless it says `auth: none`
+  (login and register). The login requests store the session token in
+  the `token` environment variable with `bru.setEnvVar`, so run a login
+  first.
+}

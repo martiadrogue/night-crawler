@@ -1,0 +1,22 @@
+meta {
+  name: Find the venues dataset
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/datasets
+  body: none
+  auth: inherit
+}
+
+script:post-response {
+  const dataset = res.body.find((item) => item.name === "venues");
+  bru.setEnvVar("venuesDatasetId", dataset.id);
+}
+
+tests {
+  test("lists the built-in venues dataset", function () {
+    expect(res.body.map((item) => item.name)).to.include("venues");
+  });
+}

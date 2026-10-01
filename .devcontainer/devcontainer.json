@@ -1,0 +1,42 @@
+{
+	"name": "Night Crawler",
+	"dockerComposeFile": [
+		"../docker-compose.yml",
+		"../docker-compose.override.yml"
+	],
+	"service": "web",
+	"runServices": [
+		"db",
+		"redis",
+		"rabbitmq",
+		"web",
+		"celery_worker",
+		"celery_beat",
+		"frontend"
+	],
+	"workspaceFolder": "/apps/martiadrogue/night-crawler",
+	"overrideCommand": false,
+	"remoteUser": "nightcrawler-app",
+    "containerUser": "scrapeotron-app",
+    "customizations": {
+        "vscode": {
+            "runArgs": [
+                "--add-host=host.docker.internal:host-gateway"
+            ],
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "charliermarsh.ruff"
+            ],
+            "settings": {
+                "devContainers.serverStoragePath": "/apps/martiadrogue/night-crawler/.vscode-server",
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.analysis.typeCheckingMode": "basic",
+                "[python]": {
+                    "editor.defaultFormatter": "charliermarsh.ruff",
+                    "editor.formatOnSave": true
+                }
+            }
+        }
+    }
+}

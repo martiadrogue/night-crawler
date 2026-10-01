@@ -1,0 +1,150 @@
+x-mongo-env: &mongo-env
+  MONGO_URL: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@db:27017/?replicaSet=rs0&authSource=admin
+  MONGO_DATABASE: ${MONGO_DATABASE}
+
+services:
+  # --- DATABASE ---
+  db:
+    # 8.2.x: 8.0 and `latest` refuse to start on Linux kernel >= 6.19
+    # (SERVER-121912).
+    image: mongo:8.2
+    container_name: fastapi_db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE}
+    # Single-node replica set: multi-document transactions (the Unit of
+    # Work) need one. With auth on, replica set members need a shared
+    # keyfile - one node, so a fresh one per start is fine. The oplog is
+    # capped at 1 GB: its default (5% of the disk) lets a busy dev or
+    # test database grow the volume by tens of GB.
+    entrypoint:
+      - bash
+      - -c
+      - |
+        head -c 756 /dev/urandom | base64 > /tmp/mongo-keyfile
+        chmod 400 /tmp/mongo-keyfile
+        chown mongodb:mongodb /tmp/mongo-keyfile
+        exec docker-entrypoint.sh mongod --replSet rs0 --keyFile /tmp/mongo-keyfile --bind_ip_all --oplogSize 1024
+    # WiredTiger keeps one file per collection and index open; Docker's
+    # default limit makes it panic ("Too many open files") once enough
+    # collections exist. 64000 is MongoDB's recommended production limit.
+    ulimits:
+      nofile:
+        soft: 64000
+        hard: 64000
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+      - mongo_config:/data/configdb
+    # Initiates the replica set on first run, then reports healthy only
+    # once this node is a writable primary.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          mongosh --quiet -u "$$MONGO_INITDB_ROOT_USERNAME" -p "$$MONGO_INITDB_ROOT_PASSWORD"
+          --authenticationDatabase admin --eval
+          "try { rs.status() } catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'db:27017'}]}) }
+          quit(db.hello().isWritablePrimary ? 0 : 1)"
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  # --- CACHE ---
+  redis:
+    image: redis:7-alpine
+    container_name: night_crawler_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # --- MESSAGE BROKER ---
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: fastapi_broker
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- FASTAPI APPLICATION BASE ---
+  web:
+    build:
+      context: .
+    user: nightcrawler-app
+    env_file:
+      - .env
+    environment: *mongo-env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # --- CELERY WORKER BASE ---
+  celery_worker:
+    build:
+      context: .
+    user: nightcrawler-app
+    env_file:
+      - .env
+    environment: *mongo-env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # --- CELERY BEAT (SCHEDULER) BASE ---
+  celery_beat:
+    build:
+      context: .
+    user: nightcrawler-app
+    env_file:
+      - .env
+    environment: *mongo-env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  # --- REFLEX FRONTEND BASE ---
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    user: nightcrawler-frontend
+    env_file:
+      - .env
+    depends_on:
+      web:
+        condition: service_started
+
+volumes:
+  mongo_data:
+  mongo_config:
+  redis_data:
+  rabbitmq_data:

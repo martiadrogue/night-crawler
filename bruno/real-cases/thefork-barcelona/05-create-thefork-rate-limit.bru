@@ -1,0 +1,51 @@
+meta {
+  name: Find or create the www.thefork.es rate limit
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/rate-limits
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "www.thefork.es",
+    "rate_limit_string": "1/second",
+    "penalty_step_seconds": 10,
+    "max_penalty_seconds": 120,
+    "decay_after_successes": 10,
+    "decay_step_seconds": 10
+  }
+}
+
+script:pre-request {
+  // One rule per domain, named after it: reuse it when it exists.
+  const existing = await bru.sendRequest({
+    method: "GET",
+    url: `${bru.getEnvVar("baseUrl")}/api/rate-limits`,
+    headers: { Authorization: `Bearer ${bru.getEnvVar("token")}` },
+  });
+  const rule = existing.data.find((item) => item.name === "www.thefork.es");
+  if (rule) {
+    bru.setEnvVar("theforkRateLimitId", rule.id);
+    bru.runner.skipRequest();
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("theforkRateLimitId", res.body.id);
+}
+
+tests {
+  test("creates the domain's rule", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Named after its domain and reused when it already exists. Gentle on
+  purpose: one listing page per second.
+}

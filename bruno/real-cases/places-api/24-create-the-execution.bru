@@ -1,0 +1,52 @@
+meta {
+  name: Create the execution
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{baseUrl}}/api/crawlers/{{placesCrawlerId}}/executions
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "context": {
+      "parish[]": [
+        "Canillo",
+        "Encamp",
+        "Ordino",
+        "La Massana",
+        "Andorra la Vella",
+        "Sant Julià de Lòria",
+        "Escaldes-Engordany"
+      ],
+      "category[]": [
+        "restaurants",
+        "bars",
+        "cafes",
+        "fast food",
+        "pizzerias",
+        "bakeries"
+      ],
+      "google_api_key": "{{googleApiKey}}"
+    }
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("placesExecutionId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Creates a `pending` run, seeded with the parishes, the categories, and
+  the API key (`googleApiKey` is a secret Bruno variable; the API never
+  returns Context values). A worker picks it up once one exists.
+}

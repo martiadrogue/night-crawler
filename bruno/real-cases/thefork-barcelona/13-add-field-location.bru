@@ -1,0 +1,26 @@
+meta {
+  name: Add field location
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{theforkListingTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "{latitude: geolocation.latitude, longitude: geolocation.longitude}",
+    "type": "value",
+    "title": "location",
+    "parent_selector_id": "{{theforkIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}

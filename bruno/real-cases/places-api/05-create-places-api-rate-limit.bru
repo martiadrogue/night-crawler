@@ -1,0 +1,53 @@
+meta {
+  name: Find or create the places.googleapis.com rate limit
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/rate-limits
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "places.googleapis.com",
+    "rate_limit_string": "5/second",
+    "penalty_step_seconds": 5,
+    "max_penalty_seconds": 60,
+    "decay_after_successes": 10,
+    "decay_step_seconds": 5
+  }
+}
+
+script:pre-request {
+  // One rule per domain, named after it: reuse it when it exists.
+  const existing = await bru.sendRequest({
+    method: "GET",
+    url: `${bru.getEnvVar("baseUrl")}/api/rate-limits`,
+    headers: { Authorization: `Bearer ${bru.getEnvVar("token")}` },
+  });
+  const rule = existing.data.find((item) => item.name === "places.googleapis.com");
+  if (rule) {
+    bru.setEnvVar("placesRateLimitId", rule.id);
+    bru.runner.skipRequest();
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("placesRateLimitId", res.body.id);
+}
+
+tests {
+  test("creates the domain's rule", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Rate limits are named after the domain they are for, so the template
+  editor's Add rate limit finds this one for `places.googleapis.com`.
+  The request is skipped when the rule already exists, and its id is
+  reused.
+}

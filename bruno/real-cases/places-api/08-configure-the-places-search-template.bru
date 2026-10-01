@@ -1,0 +1,41 @@
+meta {
+  name: Configure the Places search template
+  type: http
+  seq: 8
+}
+
+patch {
+  url: {{baseUrl}}/api/templates/{{placesSearchTemplateId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "action": "POST",
+    "url": "https://places.googleapis.com/v1/places:searchText",
+    "headers": {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": "{{google_api_key}}",
+      "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.priceLevel,places.websiteUri,places.nationalPhoneNumber,places.googleMapsUri,places.regularOpeningHours"
+    },
+    "body": "{\"textQuery\": \"{{category}} in {{parish}}, Andorra\", \"pageSize\": 20, \"languageCode\": \"en\", \"regionCode\": \"AD\", \"locationRestriction\": {\"rectangle\": {\"low\": {\"latitude\": 42.4287, \"longitude\": 1.4135}, \"high\": {\"latitude\": 42.6559, \"longitude\": 1.7866}}}}"
+  }
+}
+
+tests {
+  test("returns 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}
+
+docs {
+  Text Search (New), one call per `category` x `parish` combination: the
+  crawler fans out over the `parish[]` and `category[]` lists seeded when
+  the execution is created. Google returns at most 20 places per call;
+  42 small searches cover far more than one capped search of Andorra.
+
+  `{{category}}`, `{{parish}}` and `{{google_api_key}}` are crawler
+  placeholders, not Bruno variables: Bruno leaves unknown variables as
+  written, so they reach the API unchanged.
+}

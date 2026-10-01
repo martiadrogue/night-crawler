@@ -1,0 +1,30 @@
+meta {
+  name: Add field categories
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{theforkListingTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "[servesCuisine]",
+    "type": "value",
+    "title": "categories",
+    "parent_selector_id": "{{theforkIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The restaurant's cuisine, as a one-element list.
+}

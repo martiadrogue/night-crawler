@@ -1,0 +1,32 @@
+meta {
+  name: Create Bernat
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/users
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "email": "{{bernatEmail}}",
+    "password": "{{userPassword}}"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("bernatId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Admin-only. New accounts always start as `user`.
+}

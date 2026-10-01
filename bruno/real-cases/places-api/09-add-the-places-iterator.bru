@@ -1,0 +1,32 @@
+meta {
+  name: Add the places iterator
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{placesSearchTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "places",
+    "type": "iterator"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("placesIteratorId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  One venue row per element of the `places` array.
+}

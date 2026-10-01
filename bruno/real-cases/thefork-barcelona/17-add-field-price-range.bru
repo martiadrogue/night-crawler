@@ -1,0 +1,30 @@
+meta {
+  name: Add field price_range
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{theforkListingTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "priceRangeLevel",
+    "type": "value",
+    "title": "price_range",
+    "parent_selector_id": "{{theforkIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  TheFork's price level, 1 (cheapest) to 4.
+}
