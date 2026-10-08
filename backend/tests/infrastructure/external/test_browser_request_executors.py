@@ -215,3 +215,22 @@ async def test_a_non_get_request_is_fetched_and_harvested_as_json(
 
     assert {"query": "bars", "custom": "own"} == flatten_harvest(result.harvest)
     assert "1" == result.session.cookies["server"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("executor_type", EXECUTORS)
+async def test_a_page_that_reloads_itself_is_read_once_it_settles(
+    echo_server, executor_type, browser_executor_factory
+):
+    request = DispatchRequest(
+        rendered=RenderedRequest(
+            action="GET", url=f"{echo_server}/challenge", body=None, headers={}
+        ),
+        selectors=[_selector("state", "#state", title="state")],
+        session=None,
+        timeout_seconds=20,
+    )
+
+    result = await browser_executor_factory(executor_type).execute(request)
+
+    assert "passed" == flatten_harvest(result.harvest)["state"]

@@ -8,6 +8,14 @@ ITEM_ID_COLUMN = "item_id"
 With the Crawler's Source it is the record's de-duplication key.
 """
 
+DATASET_SAMPLE_SIZE = 800
+"""Rows in a run's Sample CSV, the download for a data quality check.
+
+Enough to estimate how often a field is empty or malformed within
+about ±3.5% (95% confidence), whatever the run's size (DOMAIN_MODEL
+§5.3).
+"""
+
 _ITEM_ID_FIELD: dict[str, Any] = {
     "name": ITEM_ID_COLUMN,
     "is_required": True,
@@ -117,6 +125,17 @@ CRAWLER_QUEUES: tuple[str, ...] = tuple(
 
 IMPORT_QUEUE = "dataset-import"
 """Where dataset imports run; never a Crawler Version's queue."""
+
+AI_AGENTS_QUEUE = "ai-agents"
+"""Where Instruction Generations run; never an execution queue."""
+
+INSTRUCTION_GENERATION_STATUSES: tuple[str, ...] = (
+    "pending",
+    "running",
+    "succeeded",
+    "failed",
+)
+"""A generation's lifecycle: waiting for a worker, running, or ended."""
 
 RENDER_MODES: tuple[str, ...] = ("none", "playwright", "stealth")
 """The engines a template can dispatch through.

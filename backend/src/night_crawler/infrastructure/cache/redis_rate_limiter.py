@@ -7,7 +7,7 @@ from contextlib import contextmanager
 
 import limits
 from limits.aio.storage import RedisStorage
-from limits.aio.strategies import MovingWindowRateLimiter
+from limits.aio.strategies import FixedWindowRateLimiter, MovingWindowRateLimiter
 from limits.errors import StorageError
 from night_crawler.domain.exceptions import ExternalServiceException
 from night_crawler.domain.model.value_objects import RateLimitTarget
@@ -31,9 +31,11 @@ class RedisRateLimiter(AbstractRateLimiter):
     """A `limits` moving window per key, plus a penalty hash per key.
 
     Windows live under `<prefix>:window`, penalties under
-    `<prefix>:penalty:<key>` (fields `penalty` and `successes`). One
-    connection pool serves both; it is bound to the event loop that
-    first uses it, so each Celery task opens its own limiter.
+    `<prefix>:penalty:<key>` (fields `penalty` and `successes`), and
+    usage budgets, `limits` fixed windows counted by amount, under
+    `<prefix>:usage`. One connection pool serves them all; it is bound
+    to the event loop that first uses it, so each Celery task opens its
+    own limiter.
     """
 
     def __init__(self, redis_url: str, key_prefix: str = DEFAULT_KEY_PREFIX) -> None:
@@ -45,6 +47,15 @@ class RedisRateLimiter(AbstractRateLimiter):
                 f"async+{redis_url}",
                 implementation="redispy",
                 key_prefix=f"{key_prefix}:window",
+                wrap_exceptions=True,
+                connection_pool=self._pool,
+            )
+        )
+        self._usage = FixedWindowRateLimiter(
+            RedisStorage(
+                f"async+{redis_url}",
+                implementation="redispy",
+                key_prefix=f"{key_prefix}:usage",
                 wrap_exceptions=True,
                 connection_pool=self._pool,
             )
@@ -68,6 +79,43 @@ class RedisRateLimiter(AbstractRateLimiter):
                 delay = max(stats.reset_time - time.time(), MIN_WINDOW_WAIT_SECONDS)
                 await sleep(delay)
                 waited += delay
+        return waited
+
+    async def try_acquire(self, target: RateLimitTarget) -> bool:
+        """Take a slot in the window if one is free; skip the penalty.
+
+        Raises:
+            ExternalServiceException: Redis is unreachable.
+        """
+        with _translate_errors():
+            window = limits.parse(target.rule.rate_limit_string)
+            return await self._windows.hit(window, target.key)
+
+    async def record_usage(self, target: RateLimitTarget, amount: int) -> None:
+        """Add `amount` to the key's fixed window, even past its limit.
+
+        Raises:
+            ExternalServiceException: Redis is unreachable.
+        """
+        with _translate_errors():
+            window = limits.parse(target.rule.rate_limit_string)
+            await self._usage.hit(window, target.key, cost=amount)
+
+    async def wait_for_usage(self, target: RateLimitTarget) -> float:
+        """Wait for the key's fixed window to reset while it is spent.
+
+        Raises:
+            ExternalServiceException: Redis is unreachable.
+        """
+        waited = 0.0
+        with _translate_errors():
+            window = limits.parse(target.rule.rate_limit_string)
+            stats = await self._usage.get_window_stats(window, target.key)
+            while 0 == stats.remaining:
+                delay = max(stats.reset_time - time.time(), MIN_WINDOW_WAIT_SECONDS)
+                await sleep(delay)
+                waited += delay
+                stats = await self._usage.get_window_stats(window, target.key)
         return waited
 
     async def record_block(self, target: RateLimitTarget) -> None:

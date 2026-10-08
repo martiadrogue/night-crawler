@@ -1,0 +1,30 @@
+meta {
+  name: Add field price_max
+  type: http
+  seq: 23
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{comedyClubhouseEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "max(cost_details.values[].to_number(@))",
+    "type": "value",
+    "title": "price_max",
+    "parent_selector_id": "{{comedyClubhouseIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The highest price, in euros; empty without a price.
+}

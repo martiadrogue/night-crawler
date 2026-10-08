@@ -13,8 +13,8 @@ from night_crawler.core.di import (
     startup_infrastructure,
 )
 from night_crawler.core.logging import setup_logging
+from night_crawler.core.telemetry import API_TELEMETRY, setup_telemetry
 from night_crawler.domain.exceptions import AppException
-from night_crawler.presentation.api.auth import router as auth_router
 from night_crawler.presentation.api.crawler import router as crawler_router
 from night_crawler.presentation.api.crawler_context import (
     router as crawler_context_router,
@@ -22,11 +22,17 @@ from night_crawler.presentation.api.crawler_context import (
 from night_crawler.presentation.api.crawler_execution import (
     router as crawler_execution_router,
 )
+from night_crawler.presentation.api.crawler_instructions import (
+    router as crawler_instructions_router,
+)
 from night_crawler.presentation.api.crawler_version import (
     router as crawler_version_router,
 )
 from night_crawler.presentation.api.dataset import router as dataset_router
 from night_crawler.presentation.api.exception_handler import app_exception_handler
+from night_crawler.presentation.api.instruction_generation import (
+    router as instruction_generation_router,
+)
 from night_crawler.presentation.api.message_aid import router as message_aid_router
 from night_crawler.presentation.api.message_aid_proxy import (
     router as message_aid_proxy_router,
@@ -65,6 +71,7 @@ app = FastAPI(
     openapi_url=None if "production" == settings.app_env else "/openapi.json",
     root_path=settings.root_path,
     lifespan=lifespan,
+    telemetry=API_TELEMETRY,
 )
 app.add_middleware(
     CORSMiddleware,
@@ -83,17 +90,19 @@ def configure_app():
     """Build the app with its routers, handlers, and dependencies."""
     setup_logging()
     setup_metrics()
+    setup_telemetry("night-crawler-api")
 
     configure_dependencies(app)
     app.add_exception_handler(AppException, app_exception_handler)
     for router in (
         root_router,
-        auth_router,
         user_router,
         source_router,
         dataset_router,
         crawler_router,
         crawler_version_router,
+        crawler_instructions_router,
+        instruction_generation_router,
         message_template_router,
         message_selector_router,
         message_aid_router,

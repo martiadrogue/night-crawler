@@ -122,3 +122,41 @@ def test_string_fields_accept_objects_and_lists():
     _kept, report = validate_dataset_rows(rows, fields, _dataset())
 
     assert report.is_valid
+
+
+def test_completeness_is_the_share_of_filled_cells_in_kept_rows():
+    _kept, report = validate_dataset_rows(
+        [_row(), _row(item_id="p2", rating=None, source_url="")],
+        FIELDS,
+        _dataset(),
+    )
+
+    assert 10 / 12 == report.completeness_rate
+
+
+def test_a_column_empty_in_every_row_lowers_completeness():
+    _kept, report = validate_dataset_rows(
+        [_row(is_open=None), _row(item_id="p2", is_open=None)], FIELDS, _dataset()
+    )
+
+    assert 10 / 12 == report.completeness_rate
+    assert not report.is_valid
+
+
+def test_completeness_leaves_out_dropped_rows():
+    _kept, report = validate_dataset_rows(
+        [_row(), _row(name=""), _row(rating=None)], FIELDS, _dataset()
+    )
+
+    assert 1.0 == report.completeness_rate
+    assert (1, 1) == (
+        report.rows_dropped_missing_required,
+        report.rows_dropped_duplicate,
+    )
+
+
+def test_completeness_is_none_without_kept_rows():
+    _kept, empty = validate_dataset_rows([], FIELDS, _dataset())
+    _kept, dropped = validate_dataset_rows([_row(name="")], FIELDS, _dataset())
+
+    assert (None, None) == (empty.completeness_rate, dropped.completeness_rate)

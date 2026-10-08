@@ -1,0 +1,32 @@
+meta {
+  name: Create the execution
+  type: http
+  seq: 27
+}
+
+post {
+  url: {{baseUrl}}/api/crawlers/{{tintaRojaCrawlerId}}/executions
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "context": {}
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("tintaRojaExecutionId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Creates a `pending` run with nothing seeded: the listing, then one
+  request per show.
+}

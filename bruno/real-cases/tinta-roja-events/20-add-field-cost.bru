@@ -1,0 +1,30 @@
+meta {
+  name: Add field cost
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{tintaRojaShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(normalize-space(.//div[contains(@class, 'flex-column')]/text()[normalize-space()]))",
+    "type": "value",
+    "title": "cost",
+    "parent_selector_id": "{{tintaRojaDatesIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The date's price line, e.g. `10€ con reserva, 13€ en taquilla`.
+}

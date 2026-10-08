@@ -1,13 +1,15 @@
-"""The port for keeping a copy of each execution's dataset CSV."""
+"""The port for storing each execution's dataset CSV, its only copy."""
 
 from abc import ABC, abstractmethod
 
 
 class AbstractDatasetExportStorage(ABC):
-    """Stores exported dataset CSVs, one file per Crawler Execution.
+    """Stores dataset CSVs, one file per Crawler Execution.
 
-    A CSV is written as raw first; only a run that succeeded and whose
-    rows passed validation has it moved to validated.
+    The file is the CSV's source of truth: MongoDB keeps only its path
+    (DOMAIN_MODEL §5.3). A CSV is written as raw first; only a run
+    that succeeded and whose rows passed validation has it moved to
+    validated.
     """
 
     @abstractmethod
@@ -32,4 +34,13 @@ class AbstractDatasetExportStorage(ABC):
         Raises:
             ExternalServiceException: there is no raw CSV, or it could
                 not be moved.
+        """
+
+    @abstractmethod
+    async def read(self, file_path: str) -> str:
+        """Return the CSV stored at a path `save` or a move returned.
+
+        Raises:
+            ExternalServiceException: there is no CSV at that path, it
+                is outside the storage, or it could not be read.
         """

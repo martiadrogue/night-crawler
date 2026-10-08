@@ -1,0 +1,31 @@
+meta {
+  name: Add field timezone
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{barcelonaComedyClubEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "'Europe/Madrid'",
+    "type": "value",
+    "title": "timezone",
+    "parent_selector_id": "{{barcelonaComedyClubIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  A constant (a JMESPath string literal): the club's timezone, which the
+  dates above are in.
+}

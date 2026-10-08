@@ -1,0 +1,30 @@
+meta {
+  name: Add field image_url
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{comedyClubhouseEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "image.url",
+    "type": "value",
+    "title": "image_url",
+    "parent_selector_id": "{{comedyClubhouseIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The event's poster.
+}

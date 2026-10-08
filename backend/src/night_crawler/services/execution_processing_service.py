@@ -49,7 +49,13 @@ async def dispatch_scheduled_crawlers(
             await crawler_execution_service.create_scheduled_execution(
                 write_repositories, execution_dispatcher, scheduled
             )
-    logger.info("Scheduled dispatch complete: dispatched=%d", len(due))
+    # Beat runs this every minute; only a dispatch that enqueued runs
+    # is worth an `INFO` line.
+    logger.log(
+        logging.INFO if due else logging.DEBUG,
+        "Scheduled dispatch complete: dispatched=%d",
+        len(due),
+    )
     return len(due)
 
 
@@ -117,7 +123,11 @@ async def _finish(
     """Save the outcome in its own short transaction."""
     async with infrastructure.repository_factories.open_write() as write_repositories:
         return await crawler_execution_service.finish_execution(
-            write_repositories, infrastructure.export_storage, execution_id, outcome
+            write_repositories,
+            infrastructure.export_storage,
+            infrastructure.execution_metrics,
+            execution_id,
+            outcome,
         )
 
 

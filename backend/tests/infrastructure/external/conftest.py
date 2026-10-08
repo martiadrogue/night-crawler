@@ -2,8 +2,11 @@ import json
 import threading
 from collections.abc import Generator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 import pytest
+from browser_use import Tools
+from browser_use.agent.views import AgentHistoryList, AgentOutput
 
 _ECHO_PAGE = """<html><body>
 <p id="cookie">{cookie}</p><p id="custom">{custom}</p><p id="ua">{ua}</p>
@@ -34,6 +37,20 @@ class _EchoHandler(BaseHTTPRequestHandler):
                 b"sessionStorage.getItem('crawler-session') || 'empty'"
                 b"</script></body></html>"
             )
+            self._reply("text/html", body)
+            return
+        if "/challenge" == self.path:
+            # Like a bot check: until the cookie is set, a page that sets
+            # it and reloads itself a moment later.
+            if "cleared=1" in self.headers.get("Cookie", ""):
+                body = b"<html><body><p id='state'>passed</p></body></html>"
+            else:
+                body = (
+                    b"<html><body><p id='state'>challenge</p><script>"
+                    b"setTimeout(function () {"
+                    b" document.cookie = 'cleared=1; path=/'; location.reload();"
+                    b" }, 700)</script></body></html>"
+                )
             self._reply("text/html", body)
             return
         if "/json" == self.path:
@@ -85,3 +102,23 @@ def echo_server() -> Generator[str, None, None]:
         yield f"http://127.0.0.1:{server.server_port}"
     finally:
         server.shutdown()
+
+
+@pytest.fixture
+def load_history():
+    """Return a loader of the recorded Browser Use history.
+
+    It is parsed by Browser Use's own models, as the agent returns it;
+    `item_count` keeps only the first items, as a run cut short would.
+    """
+    fixture = Path(__file__).parent / "fixtures" / "browser_use" / "agent_history.json"
+    output_model = AgentOutput.type_with_custom_actions(
+        Tools().registry.create_action_model()
+    )
+
+    def _load(item_count: int | None = None) -> AgentHistoryList:
+        data = json.loads(fixture.read_text())
+        data["history"] = data["history"][:item_count]
+        return AgentHistoryList.load_from_dict(data, output_model)
+
+    return _load

@@ -5,20 +5,12 @@ In memory a run's Context maps each key to a value, or to a list for a
 key is one entry per element with its `position`.
 """
 
-import json
 from typing import Any
 
-from night_crawler.domain.rules.selector_tree import ITERATOR_KEY_SUFFIX
+from night_crawler.domain.rules.selector_tree import ITERATOR_KEY_SUFFIX, to_primitive
 
 Entry = tuple[str, int | None, Any]
 """(key, position or `None` for a scalar key, primitive value)."""
-
-
-def to_primitive(value: Any) -> Any:
-    """Return `value` as a primitive; objects and lists become JSON."""
-    if isinstance(value, dict | list):
-        return json.dumps(value, ensure_ascii=False)
-    return value
 
 
 def context_to_entries(context: dict[str, Any]) -> list[Entry]:

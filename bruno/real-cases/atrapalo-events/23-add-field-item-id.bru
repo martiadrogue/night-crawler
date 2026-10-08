@@ -1,0 +1,31 @@
+meta {
+  name: Add field item_id
+  type: http
+  seq: 23
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{atrapaloShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "join('@', [placeholder('show_path'), format_iso(startDate, '%Y-%m-%d %H:%M:%S', 'Europe/Madrid')])",
+    "type": "value",
+    "title": "item_id",
+    "parent_selector_id": "{{atrapaloEventsIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  `{show path}@{start_date}`: unique per performance. `placeholder`
+  reads the run's `show_path` inside JMESPath.
+}

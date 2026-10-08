@@ -21,7 +21,7 @@ LIST_KEY_SUFFIX = "[]"
 """Mirrors the domain's `ITERATOR_KEY_SUFFIX`: it marks a list key."""
 
 
-def _reject_list_suffix(title: str | None) -> str | None:
+def reject_list_suffix(title: str | None) -> str | None:
     """Refuse a title ending in `[]`: lists are named automatically.
 
     A selector under an iterator, click, or select harvests into
@@ -38,7 +38,7 @@ def _reject_list_suffix(title: str | None) -> str | None:
     return title
 
 
-def _require_regex_for_regex_sources(source: str | None, path: str | None) -> None:
+def require_regex_for_regex_sources(source: str | None, path: str | None) -> None:
     """Check a `headers`/`url` selector's path compiles as a regex.
 
     Raises:
@@ -50,6 +50,17 @@ def _require_regex_for_regex_sources(source: str | None, path: str | None) -> No
         re.compile(path)
     except re.error as error:
         raise ValueError(f"`path` must be a regex for {source}: {error}") from error
+
+
+def require_config_for_pagination(selector_type: str, config: object) -> None:
+    """Check `config` is set exactly for a `pagination` selector.
+
+    Raises:
+        ValueError: `config` is missing on a `pagination` selector or
+            set on any other type; Pydantic turns it into a 422.
+    """
+    if ("pagination" == selector_type) != (None is not config):
+        raise ValueError("`config` is required for, and only for, pagination.")
 
 
 class PrimitiveMappingBase(BaseModel):
@@ -115,7 +126,7 @@ class MessageSelectorBase(BaseModel):
     config: PaginationConfigBase | None = None
     source: SelectorSource = "content"
 
-    _validate_title = field_validator("title")(_reject_list_suffix)
+    _validate_title = field_validator("title")(reject_list_suffix)
 
 
 class MessageSelectorCreate(MessageSelectorBase):
@@ -133,9 +144,8 @@ class MessageSelectorCreate(MessageSelectorBase):
             ValueError: `config` is missing on a `pagination` selector
                 or set on any other type.
         """
-        if ("pagination" == self.type) != (None is not self.config):
-            raise ValueError("`config` is required for, and only for, pagination.")
-        _require_regex_for_regex_sources(self.source, self.path)
+        require_config_for_pagination(self.type, self.config)
+        require_regex_for_regex_sources(self.source, self.path)
         return self
 
 
@@ -153,7 +163,7 @@ class MessageSelectorUpdate(BaseModel):
     config: PaginationConfigBase | None = None
     source: SelectorSource | None = None
 
-    _validate_title = field_validator("title")(_reject_list_suffix)
+    _validate_title = field_validator("title")(reject_list_suffix)
 
     @model_validator(mode="after")
     def _check_regex(self) -> Self:
@@ -162,7 +172,7 @@ class MessageSelectorUpdate(BaseModel):
         Raises:
             ValueError: it doesn't.
         """
-        _require_regex_for_regex_sources(self.source, self.path)
+        require_regex_for_regex_sources(self.source, self.path)
         return self
 
 

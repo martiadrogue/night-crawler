@@ -1,0 +1,31 @@
+meta {
+  name: Add field address
+  type: http
+  seq: 18
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{comedyClubhouseEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "join(', ', [venue.address, venue.zip, venue.city][?@])",
+    "type": "value",
+    "title": "address",
+    "parent_selector_id": "{{comedyClubhouseIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Street, postcode and city, skipping the parts the venue lacks.
+  The site gives no coordinates.
+}

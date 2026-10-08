@@ -7,13 +7,23 @@ from night_crawler.components.fields import (
     labelled,
     optional_id_choice,
 )
+from night_crawler.components.instruction_generation_dialog import (
+    generate_button,
+    generation_dialog,
+)
 from night_crawler.components.nav import (
     breadcrumbs,
     error_callout,
     page_shell,
 )
 from night_crawler.components.rate_limit_fields import rate_limit_fields
-from night_crawler.state.version_editor_state import VersionEditorState
+from night_crawler.state.instruction_generation_state import (
+    InstructionGenerationState,
+)
+from night_crawler.state.version_editor_state import (
+    INSTRUCTIONS_UPLOAD_ID,
+    VersionEditorState,
+)
 
 State = VersionEditorState
 
@@ -270,6 +280,88 @@ def _domain_rate_limit_dialog() -> rx.Component:
         ),
         open=State.rate_limit_form_open,
         on_open_change=State.set_rate_limit_form_open,
+    )
+
+
+# --- Instructions file -----------------------------------------------------------
+def _instructions_file_buttons() -> rx.Component:
+    """Export as YAML; import a YAML file over this version."""
+    return rx.hstack(
+        rx.button(
+            rx.icon("download", size=16),
+            "Export",
+            variant="soft",
+            on_click=State.export_instructions,
+        ),
+        rx.button(
+            rx.icon("upload", size=16),
+            "Import",
+            variant="soft",
+            on_click=State.set_instructions_form_open(True),
+            disabled=State.is_archived,
+        ),
+        spacing="2",
+    )
+
+
+def _instructions_dialog() -> rx.Component:
+    """Upload a YAML file that replaces the version's tree."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Import instructions"),
+            rx.dialog.description(
+                "The file replaces every template, selector, and aid of this "
+                "version. On a published version it opens a new draft "
+                "instead, and the published one stays as it is.",
+                size="2",
+                color_scheme="gray",
+            ),
+            rx.vstack(
+                rx.upload(
+                    rx.vstack(
+                        rx.icon("file-up", size=24),
+                        rx.text(
+                            "Drop a .yaml or .yml file, or click to choose.",
+                            size="2",
+                        ),
+                        align="center",
+                        spacing="2",
+                    ),
+                    id=INSTRUCTIONS_UPLOAD_ID,
+                    accept={
+                        "application/yaml": [".yaml", ".yml"],
+                    },
+                    max_files=1,
+                    multiple=False,
+                    border="1px dashed var(--gray-7)",
+                    border_radius="var(--radius-3)",
+                    padding="1.5em",
+                    width="100%",
+                ),
+                rx.foreach(
+                    rx.selected_files(INSTRUCTIONS_UPLOAD_ID),
+                    lambda name: rx.text(name, size="2", weight="medium"),
+                ),
+                error_callout(State.instructions_form_error),
+                rx.hstack(
+                    rx.dialog.close(rx.button("Cancel", variant="soft", type="button")),
+                    rx.button(
+                        "Import",
+                        on_click=State.import_instructions(
+                            rx.upload_files(upload_id=INSTRUCTIONS_UPLOAD_ID)
+                        ),
+                    ),
+                    justify="end",
+                    width="100%",
+                ),
+                spacing="3",
+                width="100%",
+                margin_top="1em",
+            ),
+            max_width="32em",
+        ),
+        open=State.instructions_form_open,
+        on_open_change=State.set_instructions_form_open,
     )
 
 
@@ -542,6 +634,8 @@ def version_editor() -> rx.Component:
                     align="start",
                 ),
                 rx.spacer(),
+                generate_button(),
+                _instructions_file_buttons(),
                 rx.button(
                     "Version history",
                     variant="soft",
@@ -592,7 +686,13 @@ def version_editor() -> rx.Component:
             _template_dialog(),
             _domain_rate_limit_dialog(),
             _selector_dialog(),
+            _instructions_dialog(),
+            generation_dialog(),
             spacing="4",
             width="100%",
+            # A generation's poll loop ends when the page goes away, and
+            # resumes on the page it redirected to.
+            on_mount=InstructionGenerationState.resume_polling,
+            on_unmount=InstructionGenerationState.stop_polling,
         )
     )

@@ -1,0 +1,30 @@
+meta {
+  name: Add field price_min
+  type: http
+  seq: 22
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{comedyClubhouseEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "min(cost_details.values[].to_number(@))",
+    "type": "value",
+    "title": "price_min",
+    "parent_selector_id": "{{comedyClubhouseIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The lowest price, in euros (0 when free); empty without a price.
+}

@@ -1,0 +1,35 @@
+meta {
+  name: Add field start_date
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{tintaRojaShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(concat('20', substring(normalize-space(.//p[contains(@class, 'lead')]), 12, 2), '-', substring('0', 1, number((string-length(substring-before('ene feb mar abr may jun jul ago sep oct nov dic', substring(normalize-space(.//p[contains(@class, 'lead')]), 8, 3))) div 4 + 1) < 10)), (string-length(substring-before('ene feb mar abr may jun jul ago sep oct nov dic', substring(normalize-space(.//p[contains(@class, 'lead')]), 8, 3))) div 4 + 1), '-', substring(normalize-space(.//p[contains(@class, 'lead')]), 5, 2), ' ', substring(normalize-space(.//p[contains(@class, 'lead')]), 17, 5), ':00'))",
+    "type": "value",
+    "title": "start_date",
+    "parent_selector_id": "{{tintaRojaDatesIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  `Vie 09 oct 26 - 20:00` → `2026-10-09 20:00:00`, in XPath 1.0: the
+  text has a fixed layout, so day, year and time are cut by position;
+  the month is its position in `'ene feb mar … dic'` (`div 4`, plus one),
+  padded to two digits; the year is `20` plus its two digits.
+  Local time, `Europe/Madrid`. The outer parentheses make the engine
+  read the path as XPath.
+}

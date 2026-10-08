@@ -1,7 +1,8 @@
 """Use cases for editing a Crawler's current Context.
 
 The current Context is the latest execution's. The next execution
-starts from it, so editing it shapes the next run.
+starts from it, without the keys selectors harvest, so editing the
+other keys shapes the next run.
 """
 
 import logging
@@ -49,12 +50,19 @@ async def set_context_value(
     Raises:
         ValidationException: the Crawler does not exist, or has no
             execution yet (404); the key or value breaks the Context
-            rules (400).
+            rules (400); a selector of the published version sets the
+            key, so the next run would drop the edit (409).
     """
     errors = validate_seed_context({key: value_input.value})
     if errors:
         raise ValidationException("Invalid context: " + " ".join(errors), 400)
     execution = await _latest_execution(write_repositories, current_user, crawler_id)
+    if key in await _get_published_harvested_keys(write_repositories, crawler_id):
+        raise ValidationException(
+            f"`{key}` is set by a selector and resets every run; seed it "
+            "when starting a run instead.",
+            409,
+        )
     context = await crawler_execution_service.get_context(
         write_repositories, execution.id
     )
@@ -83,6 +91,22 @@ async def delete_context_value(
         execution.id, key
     )
     await write_repositories.commit()
+
+
+async def get_current_context_keys(
+    repositories: AbstractRepositories, crawler_id: str
+) -> set[str]:
+    """Return the keys of the Crawler's current Context, if any.
+
+    Empty for a Crawler that has never run (test runs don't count).
+    """
+    execution = await repositories.crawler_executions.get_latest_by_crawler_id(
+        crawler_id
+    )
+    if None is execution:
+        return set()
+    context = await crawler_execution_service.get_context(repositories, execution.id)
+    return set(context)
 
 
 async def _latest_execution(
@@ -114,4 +138,19 @@ async def _to_out(
     return CrawlerContextOut(
         crawler_execution_id=execution.id,
         values=await crawler_execution_service.get_context(repositories, execution.id),
+        harvested_keys=sorted(
+            await _get_published_harvested_keys(repositories, execution.crawler_id)
+        ),
     )
+
+
+async def _get_published_harvested_keys(
+    repositories: AbstractRepositories, crawler_id: str
+) -> frozenset[str]:
+    """Return the keys the published version harvests, if any."""
+    published = await repositories.crawler_versions.get_published_by_crawler_id(
+        crawler_id
+    )
+    if None is published:
+        return frozenset()
+    return await crawler_execution_service.get_harvested_keys(repositories, published)

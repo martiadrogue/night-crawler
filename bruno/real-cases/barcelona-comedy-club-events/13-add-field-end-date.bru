@@ -1,0 +1,30 @@
+meta {
+  name: Add field end_date
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{barcelonaComedyClubEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "format_epoch(event_end_unix, '%Y-%m-%d %H:%M:%S', 'UTC')",
+    "type": "value",
+    "title": "end_date",
+    "parent_selector_id": "{{barcelonaComedyClubIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Local end, read like `start_date`.
+}

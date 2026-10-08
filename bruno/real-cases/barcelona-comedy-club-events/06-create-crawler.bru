@@ -1,0 +1,45 @@
+meta {
+  name: Create crawler
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/crawlers
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "title": "Barcelona comedy events - Barcelona Comedy Club",
+    "source_id": "{{barcelonaComedyClubSourceId}}",
+    "dataset_id": "{{eventsDatasetId}}",
+    "fields": [
+      "item_id",
+      "name",
+      "start_date",
+      "end_date",
+      "timezone",
+      "cost",
+      "price_max",
+      "source_url"
+    ]
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("barcelonaComedyClubCrawlerId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  8 of the `events` Dataset's 15 fields: the calendar data has no venue,
+  address, categories, organizers or image (venues are a separate
+  WordPress taxonomy, not in this response).
+}

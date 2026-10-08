@@ -3,7 +3,7 @@ import json
 import reflex as rx
 
 from night_crawler import api_client, forms
-from night_crawler.state.auth_state import AuthState
+from night_crawler.state.auth_state import get_session
 
 
 class DatasetsState(rx.State):
@@ -20,7 +20,7 @@ class DatasetsState(rx.State):
 
     @rx.event
     async def load_datasets(self):
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         if not auth.is_authenticated:
             return rx.redirect("/login")
         try:
@@ -66,7 +66,7 @@ class DatasetsState(rx.State):
         if error:
             self.form_error = error
             return None
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             if self.editing_dataset_id:
                 await api_client.update_dataset(
@@ -82,7 +82,7 @@ class DatasetsState(rx.State):
 
     @rx.event
     async def delete_dataset(self, dataset_id: str):
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             await api_client.delete_dataset(auth.token, dataset_id)
         except api_client.ApiError as exc:

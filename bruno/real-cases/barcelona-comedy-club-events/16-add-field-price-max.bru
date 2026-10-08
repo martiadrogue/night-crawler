@@ -1,0 +1,31 @@
+meta {
+  name: Add field price_max
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{barcelonaComedyClubEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "to_number(event_pmv.evotx_price[0])",
+    "type": "value",
+    "title": "price_max",
+    "parent_selector_id": "{{barcelonaComedyClubIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The full ticket price in euros (15, 18 or 20), before the online
+  discount in `cost`.
+}

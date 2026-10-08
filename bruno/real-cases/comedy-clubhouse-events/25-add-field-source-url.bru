@@ -1,0 +1,30 @@
+meta {
+  name: Add field source_url
+  type: http
+  seq: 25
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{comedyClubhouseEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "url",
+    "type": "value",
+    "title": "source_url",
+    "parent_selector_id": "{{comedyClubhouseIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The event's page on the site.
+}

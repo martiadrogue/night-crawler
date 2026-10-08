@@ -1,7 +1,7 @@
 import reflex as rx
 
 from night_crawler import api_client, forms
-from night_crawler.state.auth_state import AuthState
+from night_crawler.state.auth_state import get_session
 
 
 class RateLimitsState(rx.State):
@@ -24,7 +24,7 @@ class RateLimitsState(rx.State):
 
     @rx.event
     async def load_rate_limits(self):
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         if not auth.is_authenticated:
             return rx.redirect("/login")
         try:
@@ -77,7 +77,7 @@ class RateLimitsState(rx.State):
         if error:
             self.form_error = error
             return None
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             if self.editing_rate_limit_id:
                 await api_client.update_rate_limit(
@@ -103,7 +103,7 @@ class RateLimitsState(rx.State):
     @rx.event
     async def confirm_delete(self):
         rate_limit_id, self.deleting_rate_limit_id = self.deleting_rate_limit_id, ""
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             await api_client.delete_rate_limit(auth.token, rate_limit_id)
         except api_client.ApiError as exc:

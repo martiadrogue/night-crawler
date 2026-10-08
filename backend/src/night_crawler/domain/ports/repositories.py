@@ -8,6 +8,8 @@ broken natural key or unique reference raises `ValidationException`
 """
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 from night_crawler.domain.model.entities import (
@@ -17,51 +19,38 @@ from night_crawler.domain.model.entities import (
     CrawlerExecutionDataset,
     CrawlerVersion,
     Dataset,
+    InstructionGeneration,
     MessageAid,
     MessageAidProxy,
     MessageAidRateLimit,
     MessageSelector,
     MessageTemplate,
     Source,
-    User,
 )
 
 
-class AbstractUserRepository(ABC):
-    """Storage for user accounts."""
+@dataclass(frozen=True)
+class ExecutionDatasetSummary:
+    """What a run's dataset holds, without its CSV.
 
-    @abstractmethod
-    async def get_by_email(self, email: str) -> User | None:
-        """Return the user with this email, if any."""
+    Attributes:
+        row_count: Rows in the CSV, header excluded.
+        import_metrics: The import's counters (DOMAIN_MODEL §4.12).
+        validation: The validation report, once the run finished.
+    """
 
-    @abstractmethod
-    async def get_by_id(self, user_id: str) -> User | None:
-        """Return the user with this id, if any."""
+    row_count: int = 0
+    import_metrics: dict[str, int] = field(default_factory=dict)
+    validation: dict[str, Any] | None = None
 
-    @abstractmethod
-    async def get_all(self, limit: int | None = None, offset: int = 0) -> list[User]:
-        """Return users, newest first.
 
-        Args:
-            limit: Maximum users to return; `None` returns them all.
-            offset: Users to skip first.
-        """
+@dataclass(frozen=True)
+class StatusCount:
+    """How many executions share one status and parsing status."""
 
-    @abstractmethod
-    async def count_by_role(self, role: str) -> int:
-        """Return how many users hold `role`."""
-
-    @abstractmethod
-    async def save(self, user: User) -> User:
-        """Insert or update a user; return a fresh copy.
-
-        Raises:
-            ValidationException: the email is already taken (409).
-        """
-
-    @abstractmethod
-    async def delete(self, user_id: str) -> None:
-        """Delete a user, if present."""
+    status: str
+    parsing_status: str
+    count: int
 
 
 class AbstractCrawlerRepository(ABC):
@@ -102,10 +91,6 @@ class AbstractCrawlerRepository(ABC):
         """
 
     @abstractmethod
-    async def get_all_by_user_id(self, user_id: str) -> list[Crawler]:
-        """Return every Crawler a user created."""
-
-    @abstractmethod
     async def has_any_by_source_id(self, source_id: str) -> bool:
         """Tell whether any Crawler is linked to this Source."""
 
@@ -132,10 +117,6 @@ class AbstractCrawlerVersionRepository(ABC):
     @abstractmethod
     async def get_all_by_crawler_id(self, crawler_id: str) -> list[CrawlerVersion]:
         """Return a Crawler's versions, oldest first."""
-
-    @abstractmethod
-    async def get_all_by_user_id(self, user_id: str) -> list[CrawlerVersion]:
-        """Return every version a user owns."""
 
     @abstractmethod
     async def get_published_by_crawler_id(
@@ -352,6 +333,10 @@ class AbstractCrawlerExecutionRepository(ABC):
         crawler_id: str,
         status: str | None = None,
         limit: int | None = None,
+        *,
+        queues: tuple[str, ...] | None = None,
+        offset: int = 0,
+        created_since: datetime | None = None,
     ) -> list[CrawlerExecution]:
         """Return a Crawler's executions, newest first.
 
@@ -359,6 +344,79 @@ class AbstractCrawlerExecutionRepository(ABC):
             crawler_id: The Crawler whose runs to return.
             status: Keep only executions in this status.
             limit: Maximum executions to return; `None` returns all.
+            queues: Keep only executions sent to one of these queues;
+                `None` keeps every queue.
+            offset: How many matching executions to skip first.
+            created_since: Keep only executions created at or after
+                this time (naive UTC).
+        """
+
+    @abstractmethod
+    async def count_by_status_by_crawler_id(
+        self, crawler_id: str, queues: tuple[str, ...], created_since: datetime
+    ) -> list[StatusCount]:
+        """Count a Crawler's executions per status and parsing status.
+
+        Args:
+            crawler_id: The Crawler whose runs to count.
+            queues: Count only executions sent to one of these queues.
+            created_since: Count only executions created at or after
+                this time (naive UTC).
+        """
+
+    @abstractmethod
+    async def get_latest_verification_failure_by_crawler_id(
+        self, crawler_id: str, queues: tuple[str, ...]
+    ) -> CrawlerExecution | None:
+        """Return the newest run that succeeded without being parsed.
+
+        Args:
+            crawler_id: The Crawler whose runs to read.
+            queues: Read only executions sent to one of these queues.
+        """
+
+    @abstractmethod
+    async def get_latest_failure_by_crawler_id(
+        self, crawler_id: str, queues: tuple[str, ...]
+    ) -> CrawlerExecution | None:
+        """Return the newest run that failed or was cancelled.
+
+        Args:
+            crawler_id: The Crawler whose runs to read.
+            queues: Read only executions sent to one of these queues.
+        """
+
+    @abstractmethod
+    async def get_ended_by_crawler_id(
+        self,
+        crawler_id: str,
+        queues: tuple[str, ...],
+        limit: int,
+        offset: int = 0,
+    ) -> list[CrawlerExecution]:
+        """Return a Crawler's ended executions, newest first.
+
+        Ended: `succeeded`, `failed`, or `cancelled`.
+
+        Args:
+            crawler_id: The Crawler whose runs to return.
+            queues: Keep only executions sent to one of these queues.
+            limit: Maximum executions to return.
+            offset: How many matching executions to skip first.
+        """
+
+    @abstractmethod
+    async def get_successful_by_crawler_id(
+        self, crawler_id: str, queues: tuple[str, ...], limit: int
+    ) -> list[CrawlerExecution]:
+        """Return a Crawler's successful executions, newest first.
+
+        Successful: `succeeded` and `parsed` (DOMAIN_MODEL §4.9).
+
+        Args:
+            crawler_id: The Crawler whose runs to return.
+            queues: Keep only executions sent to one of these queues.
+            limit: Maximum executions to return.
         """
 
     @abstractmethod
@@ -447,12 +505,13 @@ class AbstractCrawlerExecutionDatasetRepository(ABC):
         """Return the execution's dataset, if it has one."""
 
     @abstractmethod
-    async def get_validations_by_crawler_execution_ids(
+    async def get_summaries_by_crawler_execution_ids(
         self, execution_ids: list[str]
-    ) -> dict[str, dict[str, Any] | None]:
-        """Return each execution's validation report, without its CSV.
+    ) -> dict[str, ExecutionDatasetSummary]:
+        """Return each execution's row count, import counts, and report.
 
-        Executions with no dataset yet are left out.
+        Never reads the CSV. Executions with no dataset yet are left
+        out.
         """
 
     @abstractmethod
@@ -467,3 +526,27 @@ class AbstractCrawlerExecutionDatasetRepository(ABC):
     @abstractmethod
     async def delete_by_crawler_execution_ids(self, execution_ids: list[str]) -> None:
         """Delete the datasets of these executions."""
+
+
+class AbstractInstructionGenerationRepository(ABC):
+    """Storage for Instruction Generations."""
+
+    @abstractmethod
+    async def get_by_id(self, generation_id: str) -> InstructionGeneration | None:
+        """Return the generation with this id, if any."""
+
+    @abstractmethod
+    async def save(self, generation: InstructionGeneration) -> InstructionGeneration:
+        """Insert or update a generation; return a fresh copy."""
+
+    @abstractmethod
+    async def delete_by_crawler_id(self, crawler_id: str) -> None:
+        """Delete every generation of a Crawler."""
+
+    @abstractmethod
+    async def clear_crawler_version_id(self, version_id: str) -> None:
+        """Null every `crawler_version_id` equal to `version_id`."""
+
+    @abstractmethod
+    async def clear_result_version_id(self, version_id: str) -> None:
+        """Null every `result_version_id` equal to `version_id`."""

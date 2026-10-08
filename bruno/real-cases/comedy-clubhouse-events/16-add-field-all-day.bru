@@ -1,0 +1,30 @@
+meta {
+  name: Add field all_day
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{comedyClubhouseEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "all_day",
+    "type": "value",
+    "title": "all_day",
+    "parent_selector_id": "{{comedyClubhouseIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Whether the event lasts all day.
+}

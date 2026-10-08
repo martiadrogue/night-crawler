@@ -28,7 +28,11 @@ from night_crawler.schemas.crawler_version import (
     CrawlerVersionOut,
     CrawlerVersionUpdate,
 )
-from night_crawler.services import crawler_execution_service, crawler_service
+from night_crawler.services import (
+    crawler_execution_service,
+    crawler_service,
+    instruction_generation_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -330,20 +334,6 @@ async def delete_versions_of_crawler(
         await _delete_version_tree(write_repositories, version)
 
 
-async def delete_versions_of_user(
-    write_repositories: AbstractWriteRepositories, user_id: str
-) -> None:
-    """Stage deleting every version a user owns; caller commits.
-
-    Raises:
-        ValidationException: one of them has run (409).
-    """
-    for version in await write_repositories.crawler_versions.get_all_by_user_id(
-        user_id
-    ):
-        await _delete_version_tree(write_repositories, version)
-
-
 async def _get_version_or_404(
     repositories: AbstractRepositories, current_user: UserOut, version_id: str
 ) -> CrawlerVersion:
@@ -386,6 +376,9 @@ async def _delete_version_tree(
         )
         await write_repositories.message_aids.delete_by_message_template_id(template.id)
         await write_repositories.message_templates.delete(template.id)
+    await instruction_generation_service.clear_version_references(
+        write_repositories, version.id
+    )
     await write_repositories.crawler_versions.delete(version.id)
 
 

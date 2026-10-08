@@ -43,7 +43,7 @@ class MongoWriteRepositories(AbstractWriteRepositories):
             client: The shared MongoDB client.
             database_name: The database every repository works on.
             repository_factories: One factory per repository attribute
-                of `AbstractRepositories`, e.g. `{"users": ...}`.
+                of `AbstractRepositories`, e.g. `{"sources": ...}`.
 
         Raises:
             ConfigurationException: a repository port has no factory.

@@ -1,0 +1,146 @@
+{
+  "events": [
+    {
+      "method": "Network.requestWillBeSent",
+      "session_id": "S1",
+      "params": {
+        "requestId": "r1",
+        "type": "Document",
+        "wallTime": 100.1,
+        "request": {
+          "url": "http://shows.example/start",
+          "method": "GET",
+          "headers": {"User-Agent": "Chrome/140", "Cookie": "sid=abc"}
+        }
+      }
+    },
+    {
+      "method": "Network.requestWillBeSent",
+      "session_id": "S1",
+      "params": {
+        "requestId": "r1",
+        "type": "Document",
+        "wallTime": 100.2,
+        "redirectResponse": {
+          "status": 301,
+          "headers": {"Location": "https://shows.example/search"}
+        },
+        "request": {
+          "url": "https://shows.example/search",
+          "method": "GET",
+          "headers": {"User-Agent": "Chrome/140"}
+        }
+      }
+    },
+    {
+      "method": "Network.responseReceived",
+      "session_id": "S1",
+      "params": {
+        "requestId": "r1",
+        "type": "Document",
+        "response": {
+          "status": 200,
+          "headers": {"Content-Type": "text/html", "Set-Cookie": "sid=abc; Path=/"}
+        }
+      }
+    },
+    {
+      "method": "Network.loadingFinished",
+      "session_id": "S1",
+      "params": {"requestId": "r1"}
+    },
+    {
+      "method": "Network.requestWillBeSent",
+      "session_id": "S1",
+      "params": {
+        "requestId": "r2",
+        "type": "XHR",
+        "wallTime": 101.2,
+        "request": {
+          "url": "https://shows.example/api/list",
+          "method": "POST",
+          "headers": {"Authorization": "Bearer secret-token", "X-Api-Key": "key-secret-1", "Content-Type": "application/json"},
+          "postData": "{\"page\": 1}"
+        }
+      }
+    },
+    {
+      "method": "Network.requestWillBeSent",
+      "session_id": "S1",
+      "params": {
+        "requestId": "r3",
+        "type": "Image",
+        "wallTime": 101.3,
+        "request": {"url": "https://shows.example/logo.png", "method": "GET", "headers": {}}
+      }
+    },
+    {
+      "method": "Network.responseReceived",
+      "session_id": "S1",
+      "params": {
+        "requestId": "r2",
+        "type": "XHR",
+        "response": {"status": 200, "headers": {"Content-Type": "application/json"}}
+      }
+    },
+    {
+      "method": "Network.loadingFinished",
+      "session_id": "S1",
+      "params": {"requestId": "r2"}
+    },
+    {
+      "method": "Network.responseReceived",
+      "session_id": "S1",
+      "params": {
+        "requestId": "r3",
+        "type": "Image",
+        "response": {"status": 200, "headers": {"Content-Type": "image/png"}}
+      }
+    },
+    {
+      "method": "Network.loadingFinished",
+      "session_id": "S1",
+      "params": {"requestId": "r3"}
+    },
+    {
+      "method": "Network.requestWillBeSent",
+      "session_id": "S2",
+      "params": {
+        "requestId": "r4",
+        "type": "Fetch",
+        "wallTime": 102.4,
+        "request": {"url": "https://tracker.example/t", "method": "GET", "headers": {}}
+      }
+    },
+    {
+      "method": "Network.loadingFailed",
+      "session_id": "S2",
+      "params": {"requestId": "r4", "errorText": "net::ERR_NAME_NOT_RESOLVED", "canceled": false}
+    },
+    {
+      "method": "Network.requestWillBeSent",
+      "session_id": "S2",
+      "params": {
+        "requestId": "r5",
+        "type": "Script",
+        "wallTime": 102.5,
+        "request": {"url": "https://shows.example/app.js", "method": "GET", "headers": {}}
+      }
+    },
+    {
+      "method": "Network.loadingFailed",
+      "session_id": "S2",
+      "params": {"requestId": "r5", "errorText": "", "canceled": true}
+    }
+  ],
+  "bodies": {
+    "r1": {
+      "body": "<html><body><ul><li class='show'>Comedy night</li><li class='show'>Late laughs</li></ul></body></html>",
+      "base64Encoded": false
+    },
+    "r2": {
+      "body": "eyJzaG93cyI6IFt7ImlkIjogIjEiLCAibmFtZSI6ICJDb21lZHkgbmlnaHQifV19",
+      "base64Encoded": true
+    }
+  }
+}

@@ -54,3 +54,32 @@ async def test_an_unwritable_directory_is_an_external_error(tmp_path):
 
     with pytest.raises(ExternalServiceException):
         await storage.save("crawler-1_run-1_20261001T114123Z", "item_id\r\n")
+
+
+@pytest.mark.anyio
+async def test_a_saved_csv_reads_back_from_raw_or_validated(tmp_path):
+    storage = LocalDatasetExportStorage(str(tmp_path / "csv"))
+    raw_path = await storage.save("run-1", "item_id\r\np1\r\n")
+    raw = await storage.read(raw_path)
+    validated_path = await storage.move_to_validated("run-1")
+
+    validated = await storage.read(validated_path)
+
+    assert "item_id\r\np1\r\n" == raw == validated
+
+
+@pytest.mark.anyio
+async def test_reading_a_missing_csv_is_an_external_error(tmp_path):
+    storage = LocalDatasetExportStorage(str(tmp_path / "csv"))
+
+    with pytest.raises(ExternalServiceException):
+        await storage.read(str(tmp_path / "csv/raw/missing.csv"))
+
+
+@pytest.mark.anyio
+async def test_a_file_outside_the_export_folder_is_never_read(tmp_path):
+    (tmp_path / "secret.txt").write_text("not a dataset")
+    storage = LocalDatasetExportStorage(str(tmp_path / "csv"))
+
+    with pytest.raises(ExternalServiceException):
+        await storage.read(str(tmp_path / "csv/../secret.txt"))

@@ -1,0 +1,36 @@
+meta {
+  name: Configure the listing template
+  type: http
+  seq: 8
+}
+
+patch {
+  url: {{baseUrl}}/api/templates/{{tintaRojaListingTemplateId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "action": "GET",
+    "url": "https://www.tinta-roja.cat/es/espectaculos-de-monologos-comicos-2",
+    "headers": {
+      "Accept": "text/html",
+      "Accept-Language": "es-ES,es;q=0.9"
+    }
+  }
+}
+
+tests {
+  test("returns 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}
+
+docs {
+  The stand-up category page: one card per upcoming date (22 today, of 3
+  shows), each linking to `/es/espectaculos/{show}?event_session_id=…`.
+  The cards say `Vie. 09 de octubre - 20:00`, with no year, so this
+  template only collects the shows; each show's own page lists every date
+  with its year (requests 12-25).
+}

@@ -1,0 +1,30 @@
+meta {
+  name: Add field venue
+  type: http
+  seq: 18
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{tintaRojaShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(string('Tinta Roja'))",
+    "type": "value",
+    "title": "venue",
+    "parent_selector_id": "{{tintaRojaDatesIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  A constant: every show on the site is at the Tinta Roja.
+}

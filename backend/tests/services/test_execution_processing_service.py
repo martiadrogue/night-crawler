@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from unittest.mock import create_autospec
 
@@ -7,6 +8,7 @@ from night_crawler.domain.bundles.execution_infrastructure import (
 )
 from night_crawler.domain.bundles.request_executors import RequestExecutors
 from night_crawler.domain.model.value_objects import Harvest, SessionState
+from night_crawler.domain.ports.execution_metrics import AbstractExecutionMetrics
 from night_crawler.domain.ports.rate_limiter import AbstractRateLimiter
 from night_crawler.domain.ports.request_executor import (
     AbstractRequestExecutor,
@@ -38,6 +40,7 @@ def _infrastructure(repository_factories, export_storage, executor):
         ),
         rate_limiter=_rate_limiter(),
         export_storage=export_storage,
+        execution_metrics=create_autospec(AbstractExecutionMetrics, instance=True),
     )
 
 
@@ -123,6 +126,39 @@ async def test_due_crawlers_get_a_pending_execution_on_their_queue(
 
 
 @pytest.mark.anyio
+async def test_a_dispatch_logs_at_info_only_when_it_enqueued_runs(
+    write_repositories,
+    member,
+    create_crawler,
+    repository_factories,
+    execution_dispatcher,
+    caplog,
+):
+    crawler = await _published_crawler(write_repositories, member, create_crawler)
+    await crawler_service.update_crawler(
+        write_repositories,
+        member,
+        crawler.id,
+        CrawlerUpdate(schedule="30 6 * * *"),
+    )
+    caplog.set_level(logging.DEBUG, logger="night_crawler")
+
+    for minute in (29, 30):
+        await execution_processing_service.dispatch_scheduled_crawlers(
+            repository_factories, execution_dispatcher, datetime(2026, 1, 1, 6, minute)
+        )
+
+    assert [
+        (logging.DEBUG, "Scheduled dispatch complete: dispatched=0"),
+        (logging.INFO, "Scheduled dispatch complete: dispatched=1"),
+    ] == [
+        (record.levelno, record.getMessage())
+        for record in caplog.records
+        if record.getMessage().startswith("Scheduled dispatch")
+    ]
+
+
+@pytest.mark.anyio
 async def test_processing_runs_the_plan_and_records_the_outcome(
     write_repositories,
     member,
@@ -156,7 +192,9 @@ async def test_processing_runs_the_plan_and_records_the_outcome(
     assert 1 == execution.metrics["request_count"]
     assert ("token", "abc") == (context.key, context.value)
     assert 1 == dataset.row_count
-    assert "item_id,name,rating\r\np1,Casa,4.5\r\n" == dataset.csv_content
+    assert "item_id,name,rating\r\np1,Casa,4.5\r\n" == (
+        export_storage.exports[dataset.file_path]
+    )
     assert dataset.validation["is_valid"]
 
 

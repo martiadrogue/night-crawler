@@ -1,18 +1,34 @@
+# `unless-stopped`: after a reboot or a Docker restart every dev service
+# comes back, not only the ones that had crashed (`on-failure` left the
+# databases down and the API failing its startup). `make down` still
+# stops them for good.
 services:
   db:
-    restart: on-failure
+    restart: unless-stopped
 
   rabbitmq:
-    restart: on-failure
+    restart: unless-stopped
 
   redis:
-    restart: on-failure
+    restart: unless-stopped
+
+  keycloak_db:
+    restart: unless-stopped
+
+  keycloak:
+    # Imports the realm only while it doesn't exist yet: to apply edits to
+    # the file, `docker compose rm -sf keycloak keycloak_db`, then
+    # `docker volume rm night-crawler_keycloak_db_data`, then `make up`.
+    command: start-dev --import-realm
+    restart: unless-stopped
+    volumes:
+      - ./keycloak/realm-night-crawler.json:/opt/keycloak/data/import/realm-night-crawler.json:ro
 
   web:
     build:
       target: development
     container_name: fastapi_web_dev
-    restart: on-failure
+    restart: unless-stopped
     ports:
       - "8000:8000"
     volumes:
@@ -27,26 +43,26 @@ services:
     build:
       target: development
     container_name: celery_worker_dev
-    restart: on-failure
+    restart: unless-stopped
     volumes:
       - .:/apps/martiadrogue/night-crawler
       - ./var/csv:/var/lib/night_crawler/csv
-    command: celery -A night_crawler.celery.app worker --loglevel=info -Q discovery,priority,real-time,testing,dataset-import
+    command: celery -A night_crawler.celery.app worker -Q discovery,priority,real-time,testing,dataset-import,ai-agents
 
   celery_beat:
     build:
       target: development
     container_name: celery_beat_dev
-    restart: on-failure
+    restart: unless-stopped
     volumes:
       - .:/apps/martiadrogue/night-crawler
-    command: celery -A night_crawler.celery.app beat --loglevel=info --schedule=/tmp/celerybeat-schedule
+    command: celery -A night_crawler.celery.app beat --schedule=/tmp/celerybeat-schedule
 
   frontend:
     build:
       target: development
     container_name: reflex_frontend_dev
-    restart: on-failure
+    restart: unless-stopped
     ports:
       - "3000:3000"  # Reflex frontend (Next.js dev server)
       - "8001:8000"  # Reflex's own backend - remapped since FastAPI `web` already owns host 8000

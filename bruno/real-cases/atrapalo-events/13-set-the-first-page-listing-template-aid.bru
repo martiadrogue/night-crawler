@@ -1,0 +1,39 @@
+meta {
+  name: Set the first page listing template aid
+  type: http
+  seq: 13
+}
+
+put {
+  url: {{baseUrl}}/api/templates/{{atrapaloFirstPageTemplateId}}/aid
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "render_mode": "stealth",
+    "ttl": 60,
+    "rate_limit_id": "{{atrapaloRateLimitId}}",
+    "retry_codes": [
+      "429",
+      "500",
+      "502",
+      "503",
+      "504",
+      "timeout"
+    ],
+    "max_retry_attempts": 2
+  }
+}
+
+tests {
+  test("returns 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}
+
+docs {
+  `stealth` (Patchright): the site challenges other clients. No retry on
+  403: a block is not retried.
+}

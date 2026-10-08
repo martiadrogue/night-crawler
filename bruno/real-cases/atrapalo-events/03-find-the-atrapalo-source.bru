@@ -1,0 +1,22 @@
+meta {
+  name: Find the Atrápalo source
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/sources
+  body: none
+  auth: inherit
+}
+
+script:post-response {
+  const source = res.body.find((item) => item.name === "Atrápalo");
+  bru.setEnvVar("atrapaloSourceId", source.id);
+}
+
+tests {
+  test("lists the Atrápalo source", function () {
+    expect(res.body.map((item) => item.name)).to.include("Atrápalo");
+  });
+}

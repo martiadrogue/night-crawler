@@ -1,0 +1,33 @@
+meta {
+  name: Add the events iterator
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{barcelonaComedyClubEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "cals.c1.json[]",
+    "type": "iterator"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("barcelonaComedyClubIteratorId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  One `events` row per date: a weekly show is one row per occurrence
+  (`event_id` with its repeat index `ri`).
+}

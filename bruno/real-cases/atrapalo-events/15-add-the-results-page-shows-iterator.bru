@@ -1,0 +1,32 @@
+meta {
+  name: Add the results page shows iterator
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{atrapaloResultsPageTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "div.card-result",
+    "type": "iterator"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("atrapaloResultsPageCardsIteratorId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  One match per show card on the page.
+}

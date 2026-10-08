@@ -1,0 +1,39 @@
+meta {
+  name: Create the show template
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/crawler-versions/{{tintaRojaVersionId}}/templates
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "action": "GET",
+    "url": "https://www.tinta-roja.cat{{show_path}}",
+    "headers": {
+      "Accept": "text/html",
+      "Accept-Language": "es-ES,es;q=0.9"
+    }
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("tintaRojaShowTemplateId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  One request per show (`{{show_path}}`, a crawler placeholder: Bruno
+  leaves it as written). Its "Otras fechas del evento" block lists every
+  upcoming date of the show, e.g. `Vie 09 oct 26 - 20:00`, with the
+  price and a booking link.
+}

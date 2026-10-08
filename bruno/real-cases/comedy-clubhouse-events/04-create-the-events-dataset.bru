@@ -1,0 +1,107 @@
+meta {
+  name: Create the events dataset
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/datasets
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "events",
+    "fields": [
+      {
+        "name": "item_id",
+        "type": "string",
+        "is_required": true,
+        "is_unique": true
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "is_required": true
+      },
+      {
+        "name": "start_date",
+        "type": "string",
+        "is_required": true,
+        "pattern": "^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$"
+      },
+      {
+        "name": "end_date",
+        "type": "string",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$"
+      },
+      {
+        "name": "timezone",
+        "type": "string"
+      },
+      {
+        "name": "all_day",
+        "type": "boolean"
+      },
+      {
+        "name": "venue",
+        "type": "string"
+      },
+      {
+        "name": "address",
+        "type": "string"
+      },
+      {
+        "name": "categories",
+        "type": "string"
+      },
+      {
+        "name": "organizers",
+        "type": "string"
+      },
+      {
+        "name": "cost",
+        "type": "string"
+      },
+      {
+        "name": "price_min",
+        "type": "float"
+      },
+      {
+        "name": "price_max",
+        "type": "float"
+      },
+      {
+        "name": "image_url",
+        "type": "string",
+        "pattern": "^https?://"
+      },
+      {
+        "name": "source_url",
+        "type": "string",
+        "is_required": true,
+        "is_unique": true,
+        "pattern": "^https?://"
+      }
+    ]
+  }
+}
+
+tests {
+  test("creates it, or it already exists", function () {
+    expect([201, 409]).to.include(res.status);
+  });
+}
+
+docs {
+  There is no built-in Dataset for events, so this one is created: one row
+  per event occurrence (a weekly show is one row per date). `item_id` is
+  the event's WordPress id; `source_url` is its page, unique too.
+  Dates are the venue's local time (`timezone`), `YYYY-MM-DD HH:MM:SS`.
+  `categories` and `organizers` are lists; `price_min` / `price_max` are
+  euros (0 for free), empty when the event lists no price.
+
+  409 means an `events` Dataset already exists: it is reused as it is.
+  If its fields differ from these, request 07 fails with 422.
+}

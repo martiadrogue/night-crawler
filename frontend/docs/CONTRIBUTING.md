@@ -9,9 +9,13 @@ For the backend, see the root [docs/CONTRIBUTING.md](../../docs/CONTRIBUTING.md)
   from event handlers (server side). Components MUST NOT call the API, and
   the browser never does.
 - **FR1.2** `api_client.py` MUST have one small async function per
-  endpoint, taking the token first (except `register` and `login`),
+  endpoint, taking the access token first,
   returning the decoded JSON (or `None` for an empty body), and raising
-  `ApiError` for any non-2xx. No retries, no caching.
+  `ApiError` for any non-2xx, and a 503 one when the API can't be reached. No retries, no caching.
+- **FR1.2a** Keycloak (login, code exchange, refresh, logout) MUST be
+  reached only through `oidc_client.py`, and handlers MUST get the token
+  through `get_session(self)`, which refreshes it, never
+  `get_state(AuthState)`.
 - **FR1.3** Business rules (who may do what, version lifecycle, cron
   validity, selector config) MUST NOT be re-implemented in the UI. Send the
   request and show the API's message. The UI MAY disable controls to guide
@@ -21,14 +25,14 @@ For the backend, see the root [docs/CONTRIBUTING.md](../../docs/CONTRIBUTING.md)
   Filling a form from an entity MAY stay in the state's `start_edit_*`
   handler when it is only defaults (`or ""`) and `json.dumps`.
 - **FR1.5** Each page has one `rx.State` in `state/`, which MAY be shared
-  (`AuthState` serves `/`, `/login`, and `/register`); one page module per
+  (`AuthState` serves `/`, `/login`, `/register`, and `/auth/callback`); one page module per
   route, in `pages/`; reusable pieces in `components/`.
 
 ## 2. State and Events
 
 - **FR2.1** Every page behind login MUST have an `on_load` handler that
   redirects to `/login` without a token, then loads its data. `/login`
-  and `/register` have none.
+  has none; `/register` and `/auth/callback` only drive the Keycloak login.
 - **FR2.2** Every `api_client` call MUST sit in a `try` catching
   `ApiError`, shown in the page's or dialog's error var; handlers MUST NOT
   let it escape.
@@ -59,9 +63,10 @@ For the backend, see the root [docs/CONTRIBUTING.md](../../docs/CONTRIBUTING.md)
   gets a one-line docstring.
 - **FR4.2** Cyclomatic complexity MUST be grade A (`radon cc`), or B with a
   one-line comment saying why.
-- **FR4.3** Every public function in `forms.py` and `api_client.py` MUST
-  be covered by `frontend/tests/` (pytest + anyio; `httpx.MockTransport`
-  via `api_client.TRANSPORT`, never the network). A new endpoint function
+- **FR4.3** Every public function in `forms.py`, `api_client.py`, and
+  `oidc_client.py` MUST be covered by `frontend/tests/` (pytest + anyio;
+  `httpx.MockTransport` via `api_client.TRANSPORT` or
+  `oidc_client.TRANSPORT`, never the network). A new endpoint function
   gets a row in `test_api_client.py`'s `ENDPOINTS` table.
 - **FR4.4** Names follow the backend's ubiquitous language (crawler,
   version, message template/selector/aid), never "job".

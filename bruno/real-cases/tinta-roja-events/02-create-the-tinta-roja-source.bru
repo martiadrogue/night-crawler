@@ -1,0 +1,24 @@
+meta {
+  name: Create the Tinta Roja source
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/sources
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Tinta Roja",
+    "url": "https://www.tinta-roja.cat"
+  }
+}
+
+tests {
+  test("creates it, or it already exists", function () {
+    expect([201, 409]).to.include(res.status);
+  });
+}

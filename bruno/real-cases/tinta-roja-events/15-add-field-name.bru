@@ -1,0 +1,30 @@
+meta {
+  name: Add field name
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{tintaRojaShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(normalize-space(//h1))",
+    "type": "value",
+    "title": "name",
+    "parent_selector_id": "{{tintaRojaDatesIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The show's title, the page's `<h1>`.
+}

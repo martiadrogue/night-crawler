@@ -1,0 +1,32 @@
+meta {
+  name: Add the first page pages iterator
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{atrapaloFirstPageTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "//a[contains(@href, '/monologos/es_ajax/p-')]",
+    "type": "iterator"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("atrapaloFirstPagePagesIteratorId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The pagination links to other result pages.
+}

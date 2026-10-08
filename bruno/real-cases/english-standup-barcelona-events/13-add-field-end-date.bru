@@ -1,0 +1,30 @@
+meta {
+  name: Add field end_date
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{englishStandupEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(concat(.//time[@class='event-time-localized-end']/@datetime, ' ', substring('0', 1, number((substring-before(.//time[@class='event-time-localized-end'], ':') mod 12 + 12 * number(contains(.//time[@class='event-time-localized-end'], 'PM'))) < 10)), (substring-before(.//time[@class='event-time-localized-end'], ':') mod 12 + 12 * number(contains(.//time[@class='event-time-localized-end'], 'PM'))), ':', substring(substring-after(.//time[@class='event-time-localized-end'], ':'), 1, 2), ':00'))",
+    "type": "value",
+    "title": "end_date",
+    "parent_selector_id": "{{englishStandupIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  End, read the same way as `start_date`.
+}

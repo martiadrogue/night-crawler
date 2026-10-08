@@ -3,6 +3,7 @@ import reflex as rx
 from night_crawler import forms
 from night_crawler.components.fields import id_choice
 from night_crawler.components.nav import error_callout, page_shell
+from night_crawler.components.row_actions import RowAction, row_actions
 from night_crawler.state.crawlers_state import CrawlersState
 
 
@@ -165,7 +166,21 @@ def _delete_dialog() -> rx.Component:
 
 def _context_row(row: rx.Var) -> rx.Component:
     return rx.table.row(
-        rx.table.cell(rx.code(row["key"])),
+        rx.table.cell(
+            rx.vstack(
+                rx.code(row["key"]),
+                rx.cond(
+                    row["is_harvested"].to(bool),
+                    rx.badge(
+                        "set by a selector · not inherited",
+                        size="1",
+                        color_scheme="gray",
+                        white_space="nowrap",
+                    ),
+                ),
+                spacing="1",
+            )
+        ),
         rx.table.cell(
             rx.text(
                 row["value_text"],
@@ -177,11 +192,14 @@ def _context_row(row: rx.Var) -> rx.Component:
         ),
         rx.table.cell(
             rx.hstack(
-                rx.button(
-                    "Edit",
-                    size="1",
-                    variant="soft",
-                    on_click=CrawlersState.start_context_edit(row),
+                rx.cond(
+                    ~row["is_harvested"].to(bool),
+                    rx.button(
+                        "Edit",
+                        size="1",
+                        variant="soft",
+                        on_click=CrawlersState.start_context_edit(row),
+                    ),
                 ),
                 rx.button(
                     "Delete",
@@ -259,8 +277,10 @@ def _context_dialog() -> rx.Component:
         rx.dialog.content(
             rx.dialog.title("Context · " + CrawlersState.context_crawler_title),
             rx.dialog.description(
-                "The values of the crawler's latest run, which its next run "
-                "inherits. Keys ending in [] are lists a template fans out over. "
+                "The values of the crawler's latest run. Its next run inherits "
+                "them, except the ones a selector sets, which every run "
+                "harvests afresh. Keys ending in [] are lists a template fans "
+                "out over. "
                 "Values of keys that look secret (key, token, secret, password) "
                 "stay hidden; you can still replace or delete them.",
                 size="2",
@@ -319,40 +339,28 @@ def _row(crawler: rx.Var) -> rx.Component:
             rx.cond(
                 crawler["schedule"],
                 rx.code(crawler["schedule"]),
-                rx.text("manual", color_scheme="gray"),
+                rx.text("Not scheduled", color_scheme="gray"),
             )
         ),
         rx.table.cell(crawler["queue"]),
         rx.table.cell(
-            rx.hstack(
-                rx.button(
-                    "Schedule",
-                    size="1",
-                    variant="soft",
-                    on_click=CrawlersState.start_edit(crawler),
-                ),
-                rx.button(
-                    "Instructions",
-                    size="1",
-                    variant="soft",
-                    color_scheme="violet",
-                    on_click=CrawlersState.open_instructions(crawler["id"]),
-                ),
-                rx.button(
-                    "Context",
-                    size="1",
-                    variant="soft",
-                    color_scheme="teal",
-                    on_click=CrawlersState.open_context(crawler),
-                ),
-                rx.button(
-                    "Delete",
-                    size="1",
-                    variant="soft",
-                    color_scheme="red",
-                    on_click=CrawlersState.start_delete(crawler["id"]),
-                ),
-                spacing="2",
+            row_actions(
+                [
+                    RowAction("Schedule", CrawlersState.start_edit(crawler)),
+                    RowAction(
+                        "Instructions",
+                        CrawlersState.open_instructions(crawler["id"]),
+                        "violet",
+                    ),
+                    RowAction("Context", CrawlersState.open_context(crawler)),
+                    RowAction(
+                        "History",
+                        rx.redirect("/crawlers/" + crawler["id"].to(str) + "/history"),
+                    ),
+                    RowAction(
+                        "Delete", CrawlersState.start_delete(crawler["id"]), "red"
+                    ),
+                ]
             )
         ),
     )

@@ -1,7 +1,7 @@
 import reflex as rx
 
 from night_crawler import api_client, forms
-from night_crawler.state.auth_state import AuthState
+from night_crawler.state.auth_state import get_session
 
 PAGE_SIZE = 50
 
@@ -21,7 +21,7 @@ class RunsState(rx.State):
 
     @rx.event
     async def load_runs(self):
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         if not auth.is_authenticated:
             return rx.redirect("/login")
         params = forms.execution_params(self._filters(), self.offset)
@@ -81,17 +81,23 @@ class RunsState(rx.State):
         return RunsState.load_runs
 
     @rx.event
-    async def download_csv(self, execution_id: str):
-        """Hand the browser the run's dataset CSV as a file."""
-        auth = await self.get_state(AuthState)
+    async def download_sample_csv(self, execution_id: str):
+        """Hand the browser the run's Sample CSV as a file.
+
+        A sample, not the whole dataset: enough for a data quality
+        check, and small whatever the run's size.
+        """
+        auth = await get_session(self)
         try:
-            csv_text = await api_client.download_execution_csv(auth.token, execution_id)
+            filename, csv_text = await api_client.download_execution_sample_csv(
+                auth.token, execution_id
+            )
         except api_client.ApiError as exc:
             self.error = exc.message
             return None
         self.error = ""
         # Bytes travel base64-encoded, so the CSV's CRLF endings survive.
-        return rx.download(data=csv_text.encode(), filename=f"{execution_id}.csv")
+        return rx.download(data=csv_text.encode(), filename=filename)
 
     @rx.var
     def is_filtered(self) -> bool:

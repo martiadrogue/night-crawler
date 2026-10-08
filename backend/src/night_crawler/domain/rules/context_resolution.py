@@ -21,7 +21,9 @@ def resolve_template_runs(
     """Render a template once per combination of its list placeholders.
 
     A placeholder found as `name` is one value; found as `name[]` it
-    multiplies the runs. An empty list means no runs.
+    multiplies the runs, once per distinct element: a value listed twice
+    (a link two pages share) is still one request. An empty list means
+    no runs.
 
     Raises:
         MissingPlaceholderException: a placeholder exists under neither
@@ -32,7 +34,9 @@ def resolve_template_runs(
     )
     combinations = [
         dict(zip(list_values, combination, strict=True))
-        for combination in itertools.product(*list_values.values())
+        for combination in itertools.product(
+            *(_distinct(values) for values in list_values.values())
+        )
     ]
     return [
         _render(template, {**single_values, **combination}, combination)
@@ -53,6 +57,15 @@ def resolve_repeat_run(
         {**rendered.placeholder_values, **updates},
         rendered.fanned_out_values,
     )
+
+
+def _distinct(values: list[Any]) -> list[Any]:
+    """Return `values` without repeats, in order (unhashables too)."""
+    kept: list[Any] = []
+    for value in values:
+        if value not in kept:
+            kept.append(value)
+    return kept
 
 
 def _classify(

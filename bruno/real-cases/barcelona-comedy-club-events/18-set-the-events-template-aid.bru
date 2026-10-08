@@ -1,0 +1,38 @@
+meta {
+  name: Set the events template aid
+  type: http
+  seq: 18
+}
+
+put {
+  url: {{baseUrl}}/api/templates/{{barcelonaComedyClubEventsTemplateId}}/aid
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "render_mode": "none",
+    "ttl": 60,
+    "rate_limit_id": "{{barcelonaComedyClubRateLimitId}}",
+    "retry_codes": [
+      "429",
+      "500",
+      "502",
+      "503",
+      "504",
+      "timeout"
+    ],
+    "max_retry_attempts": 3
+  }
+}
+
+tests {
+  test("returns 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}
+
+docs {
+  Plain JSON, so httpx (`none`). The response takes about 3 seconds.
+}

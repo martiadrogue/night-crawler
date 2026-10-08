@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 import pytest
@@ -56,18 +57,30 @@ class FakeExecutor(AbstractRequestExecutor):
 class FakeRateLimiter(AbstractRateLimiter):
     """Records what the run asked of each rate-limit key."""
 
-    def __init__(self):
+    def __init__(self, waited=0.0):
         self.calls = []
+        self.waited = waited
 
     async def acquire(self, target: RateLimitTarget) -> float:
         self.calls.append(("acquire", target.key))
-        return 0.0
+        return self.waited
 
     async def record_block(self, target: RateLimitTarget) -> None:
         self.calls.append(("block", target.key))
 
     async def record_success(self, target: RateLimitTarget) -> None:
         self.calls.append(("success", target.key))
+
+    async def try_acquire(self, target: RateLimitTarget) -> bool:
+        self.calls.append(("try_acquire", target.key))
+        return True
+
+    async def record_usage(self, target: RateLimitTarget, amount: int) -> None:
+        self.calls.append(("usage", target.key))
+
+    async def wait_for_usage(self, target: RateLimitTarget) -> float:
+        self.calls.append(("wait_for_usage", target.key))
+        return 0.0
 
     async def aclose(self) -> None:
         pass
@@ -398,6 +411,75 @@ async def test_a_first_harvest_replaces_the_inherited_list():
 
 
 @pytest.mark.anyio
+async def test_sibling_iterators_store_each_list_value_once():
+    listing = _template("listing", "https://site.example.com/list")
+    detail = _template("detail", "https://site.example.com{{show_path}}")
+    shows = _selector("listing", "shows", selector_type="iterator")
+    pages = _selector("listing", "pages", selector_type="iterator")
+    # Sibling iterators cross-join: 3 shows × 2 page links per response.
+    cross_joined = [
+        {"show_path": show, "listing_page": page}
+        for show in ("/s1", "/s2", "/s3")
+        for page in ("p-2/", "p-3/")
+    ]
+    executors, log = _executors(
+        {
+            "https://site.example.com/list": [
+                _result(cross_joined, {"show_path", "listing_page"}),
+            ],
+            **{f"https://site.example.com/s{index}": _result() for index in (1, 2, 3)},
+        }
+    )
+    selectors = {
+        "listing": [
+            shows,
+            pages,
+            _selector("listing", "show_path", parent=shows.id),
+            _selector("listing", "listing_page", parent=pages.id),
+        ],
+        "detail": [],
+    }
+
+    outcome = await crawler_run_service.execute_plan(
+        executors, FakeRateLimiter(), _plan([listing, detail], selectors)
+    )
+
+    assert ["/s1", "/s2", "/s3"] == outcome.context["show_path[]"]
+    assert ["p-2/", "p-3/"] == outcome.context["listing_page[]"]
+    assert 4 == outcome.request_count
+    assert 4 == len(log)
+
+
+@pytest.mark.anyio
+async def test_later_responses_append_only_new_list_values():
+    search = _template("search", "https://api.example.com/search?q={{q}}")
+    executors, _log = _executors(
+        {
+            "https://api.example.com/search?q=a": _result(
+                [{"place_id": "p1"}, {"place_id": "p2"}, {"place_id": "p1"}],
+                {"place_id"},
+            ),
+            "https://api.example.com/search?q=b": _result(
+                [{"place_id": "p2"}, {"place_id": "p3"}], {"place_id"}
+            ),
+        }
+    )
+
+    outcome = await crawler_run_service.execute_plan(
+        executors,
+        FakeRateLimiter(),
+        _plan(
+            [search],
+            {"search": [_selector("search", "place_id")]},
+            context={"q[]": ["a", "b"], "place_id[]": ["p9", "p9"]},
+        ),
+    )
+
+    assert ["p1", "p2", "p3"] == outcome.context["place_id[]"]
+    assert 2 == outcome.request_count
+
+
+@pytest.mark.anyio
 async def test_a_template_without_field_selectors_adds_no_rows():
     search = _template("search", "https://api.example.com/search")
     executors, _log = _executors(
@@ -691,6 +773,27 @@ async def test_a_rate_limited_request_waits_before_every_try(waits):
         ("acquire", "domain:example.com"),
         ("success", "domain:example.com"),
     ] == limiter.calls
+
+
+@pytest.mark.anyio
+async def test_a_rate_limit_wait_is_logged_at_debug_only(caplog):
+    page = _template("page", "https://example.com/")
+    executors, _log = _executors({"https://example.com/": _result()})
+    caplog.set_level(logging.DEBUG, logger="night_crawler")
+
+    await crawler_run_service.execute_plan(
+        executors,
+        FakeRateLimiter(waited=0.4),
+        _plan(
+            [page],
+            {"page": [_selector("page", "name")]},
+            aids={"page": _aid("page", rate_limit_id="r1")},
+            rate_limits={"r1": _rate_limit("r1")},
+        ),
+    )
+
+    [record] = [r for r in caplog.records if r.getMessage().startswith("Rate limited")]
+    assert logging.DEBUG == record.levelno
 
 
 @pytest.mark.anyio

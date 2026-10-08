@@ -1,0 +1,30 @@
+meta {
+  name: Add field organizers
+  type: http
+  seq: 29
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{atrapaloShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "performer[].name",
+    "type": "value",
+    "title": "organizers",
+    "parent_selector_id": "{{atrapaloEventsIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The performers' names.
+}

@@ -1,0 +1,30 @@
+meta {
+  name: Add field address
+  type: http
+  seq: 28
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{atrapaloShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "join(', ', [location.address.streetAddress, location.address.addressLocality][?@])",
+    "type": "value",
+    "title": "address",
+    "parent_selector_id": "{{atrapaloEventsIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Street and city, skipping missing parts.
+}

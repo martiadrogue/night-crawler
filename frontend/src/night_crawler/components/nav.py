@@ -15,6 +15,7 @@ def navbar() -> rx.Component:
                 rx.link("Sources", href="/sources"),
                 rx.link("Datasets", href="/datasets"),
                 rx.link("Rate limits", href="/rate-limits"),
+                rx.cond("admin" == AuthState.role, rx.link("Users", href="/users")),
                 rx.text(AuthState.email, color_scheme="gray"),
                 rx.button("Log out", on_click=AuthState.logout, variant="soft"),
                 spacing="4",

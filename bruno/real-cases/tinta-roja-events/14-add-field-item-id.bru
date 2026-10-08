@@ -1,0 +1,32 @@
+meta {
+  name: Add field item_id
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{tintaRojaShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(concat(substring-after(//a[starts-with(@href, '/en/espectaculos/')]/@href, '/en/espectaculos/'), '@', concat('20', substring(normalize-space(.//p[contains(@class, 'lead')]), 12, 2), '-', substring('0', 1, number((string-length(substring-before('ene feb mar abr may jun jul ago sep oct nov dic', substring(normalize-space(.//p[contains(@class, 'lead')]), 8, 3))) div 4 + 1) < 10)), (string-length(substring-before('ene feb mar abr may jun jul ago sep oct nov dic', substring(normalize-space(.//p[contains(@class, 'lead')]), 8, 3))) div 4 + 1), '-', substring(normalize-space(.//p[contains(@class, 'lead')]), 5, 2), ' ', substring(normalize-space(.//p[contains(@class, 'lead')]), 17, 5), ':00')))",
+    "type": "value",
+    "title": "item_id",
+    "parent_selector_id": "{{tintaRojaDatesIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  `{show slug}@{start_date}`, e.g.
+  `el-asado-stand-up-2957@2026-10-09 20:00:00`. The slug comes from the
+  page's English-language link, the one place it names its own show.
+}

@@ -1,0 +1,30 @@
+meta {
+  name: Add field source_url
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{englishStandupEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(concat('https://www.englishstandupbarcelona.com', .//a[@class='eventlist-title-link']/@href))",
+    "type": "value",
+    "title": "source_url",
+    "parent_selector_id": "{{englishStandupIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The event's page: the site's address plus the title link's path.
+}

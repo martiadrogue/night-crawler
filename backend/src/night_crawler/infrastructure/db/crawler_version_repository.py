@@ -29,10 +29,6 @@ class MongoCrawlerVersionRepository(
             {"crawler_id": crawler_id}, [("created_at", ASCENDING)]
         )
 
-    async def get_all_by_user_id(self, user_id: str) -> list[CrawlerVersion]:
-        """Return every version a user owns."""
-        return await self._find_many({"user_id": user_id})
-
     async def get_published_by_crawler_id(
         self, crawler_id: str
     ) -> CrawlerVersion | None:

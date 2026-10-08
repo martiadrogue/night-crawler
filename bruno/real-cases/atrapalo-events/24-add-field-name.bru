@@ -1,0 +1,30 @@
+meta {
+  name: Add field name
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{atrapaloShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "name",
+    "type": "value",
+    "title": "name",
+    "parent_selector_id": "{{atrapaloEventsIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The show's name.
+}

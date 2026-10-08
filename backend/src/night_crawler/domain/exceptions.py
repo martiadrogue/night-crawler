@@ -4,6 +4,11 @@ The API layer's single exception handler maps `status_code` straight to
 the HTTP response, so each subclass fixes a sensible default.
 """
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from night_crawler.domain.ports.browser_agent_recorder import AgentRecording
+
 
 class AppException(Exception):
     """Base of every controlled error.
@@ -60,6 +65,21 @@ class RequestFailedException(ExternalServiceException):
         """Keep the failure's code next to its message."""
         super().__init__(message)
         self.failure_code = failure_code
+
+
+class BrowserAgentException(ExternalServiceException):
+    """A browser agent, its model, or its browser failed.
+
+    Attributes:
+        recording: What was recorded before it failed (an
+            `AgentRecording`), kept for debugging; `None` when nothing
+            was.
+    """
+
+    def __init__(self, message: str, recording: "AgentRecording | None") -> None:
+        """Keep the partial recording next to the message."""
+        super().__init__(message)
+        self.recording = recording
 
 
 class MissingPlaceholderException(ValidationException):

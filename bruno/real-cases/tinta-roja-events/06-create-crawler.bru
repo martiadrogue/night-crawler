@@ -1,0 +1,47 @@
+meta {
+  name: Create crawler
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/crawlers
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "title": "Barcelona comedy events - Tinta Roja",
+    "source_id": "{{tintaRojaSourceId}}",
+    "dataset_id": "{{eventsDatasetId}}",
+    "fields": [
+      "item_id",
+      "name",
+      "start_date",
+      "timezone",
+      "venue",
+      "address",
+      "cost",
+      "price_min",
+      "price_max",
+      "image_url",
+      "source_url"
+    ]
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("tintaRojaCrawlerId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  11 of the `events` Dataset's 15 fields: the site gives no end time
+  (only doors opening), organizers, categories per date or all-day flag.
+}

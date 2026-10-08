@@ -1,0 +1,46 @@
+meta {
+  name: Create crawler
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/crawlers
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "title": "Barcelona comedy events - The Comedy Clubhouse",
+    "source_id": "{{comedyClubhouseSourceId}}",
+    "dataset_id": "{{eventsDatasetId}}",
+    "fields": [
+      "item_id",
+      "name",
+      "start_date",
+      "end_date",
+      "timezone",
+      "all_day",
+      "venue",
+      "address",
+      "categories",
+      "organizers",
+      "cost",
+      "price_min",
+      "price_max",
+      "image_url",
+      "source_url"
+    ]
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("comedyClubhouseCrawlerId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}

@@ -3,9 +3,10 @@ import json
 import reflex as rx
 
 from night_crawler import api_client, forms
-from night_crawler.state.auth_state import AuthState
+from night_crawler.state.auth_state import get_session
 
 NO_SELECTION = forms.NO_SELECTION
+INSTRUCTIONS_UPLOAD_ID = "instructions_upload"
 
 
 class VersionEditorState(rx.State):
@@ -31,6 +32,9 @@ class VersionEditorState(rx.State):
     rate_limit_form_error: str = ""
     error: str = ""
     notice: str = ""
+
+    instructions_form_open: bool = False
+    instructions_form_error: str = ""
 
     template_form_open: bool = False
     editing_template_id: str = ""
@@ -95,7 +99,7 @@ class VersionEditorState(rx.State):
     # --- Loading ------------------------------------------------------------
     @rx.event
     async def load_version(self):
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         if not auth.is_authenticated:
             return rx.redirect("/login")
         try:
@@ -154,7 +158,7 @@ class VersionEditorState(rx.State):
         self.selected_template_id = template_id or self.selected_template_id
         if not self.is_published:
             return VersionEditorState.load_version
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             versions = await api_client.list_versions(
                 auth.token, self.version["crawler_id"]
@@ -169,7 +173,7 @@ class VersionEditorState(rx.State):
 
     async def _mutate(self, call, *args):
         """Run an API call; return the follow-up event, or `None`."""
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             await call(auth.token, *args)
         except api_client.ApiError as exc:
@@ -181,7 +185,7 @@ class VersionEditorState(rx.State):
     @rx.event
     async def publish(self):
         """Publish this draft; the API archives the published version."""
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             published = await api_client.publish_version(
                 auth.token, self.version["crawler_id"], self.version_id
@@ -196,7 +200,7 @@ class VersionEditorState(rx.State):
     @rx.event
     async def run_test(self):
         """Run this exact version once on the `testing` queue."""
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             execution = await api_client.create_test_execution(
                 auth.token, self.version_id
@@ -222,6 +226,61 @@ class VersionEditorState(rx.State):
     async def save_settings(self, form_data: dict):
         payload = forms.build_settings_payload(form_data)
         return await self._mutate(api_client.update_version, self.version_id, payload)
+
+    # --- Instructions file ------------------------------------------------------
+    @rx.event
+    async def export_instructions(self):
+        """Hand the browser this version's instructions as a YAML file."""
+        auth = await get_session(self)
+        try:
+            text = await api_client.export_instructions(auth.token, self.version_id)
+        except api_client.ApiError as exc:
+            self.error = exc.message
+            return None
+        self.error = ""
+        return rx.download(
+            data=text.encode(),
+            filename=forms.instructions_filename(
+                self.crawler_title, self.version.get("status", "")
+            ),
+        )
+
+    @rx.event
+    def set_instructions_form_open(self, is_open: bool):
+        self.instructions_form_open = is_open
+        self.instructions_form_error = ""
+        # A file picked then cancelled must not wait for the next import.
+        return None if is_open else rx.clear_selected_files(INSTRUCTIONS_UPLOAD_ID)
+
+    @rx.event
+    async def import_instructions(self, files: list[rx.UploadFile]):
+        """Replace this version's instructions with the uploaded file.
+
+        A published version lands on a new draft, which the editor opens.
+        """
+        if not files:
+            self.instructions_form_error = "Choose a YAML file."
+            return None
+        text, error = forms.decode_instructions_file(await files[0].read())
+        if error:
+            self.instructions_form_error = error
+            return None
+        auth = await get_session(self)
+        try:
+            version = await api_client.import_instructions(
+                auth.token, self.version_id, text
+            )
+        except api_client.ApiError as exc:
+            self.instructions_form_error = exc.message
+            return None
+        self.instructions_form_open = False
+        self.error = ""
+        if version["id"] != self.version_id:
+            return rx.redirect(f"/versions/{version['id']}")
+        return [
+            rx.clear_selected_files(INSTRUCTIONS_UPLOAD_ID),
+            VersionEditorState.load_version,
+        ]
 
     async def _load_rate_limits(self, token: str) -> None:
         """Fetch the rules, for the aid's select and the domain lookup."""
@@ -298,7 +357,7 @@ class VersionEditorState(rx.State):
         if error:
             self.rate_limit_form_error = error
             return
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             created = await api_client.create_rate_limit(auth.token, payload)
             await self._load_rate_limits(auth.token)
@@ -328,7 +387,7 @@ class VersionEditorState(rx.State):
         if error or aid_error:
             self.template_form_error = error or aid_error
             return None
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             template = await self._save_template(auth.token, payload)
             await self._save_aid(auth.token, template["id"], aid_payload)
@@ -420,7 +479,7 @@ class VersionEditorState(rx.State):
         if error:
             self.selector_form_error = error
             return None
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             if self.editing_selector_id:
                 selector = await api_client.update_selector(

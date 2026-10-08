@@ -1,0 +1,32 @@
+meta {
+  name: Add field image_url
+  type: http
+  seq: 18
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{englishStandupEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "a.eventlist-column-thumbnail img",
+    "type": "value",
+    "title": "image_url",
+    "parent_selector_id": "{{englishStandupIteratorId}}",
+    "target": "data-src"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The event's image: the thumbnail's `data-src` (Squarespace lazy-loads
+  it, so `src` is empty).
+}

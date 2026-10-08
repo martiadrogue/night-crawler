@@ -1,7 +1,7 @@
 import reflex as rx
 
 from night_crawler import api_client, forms
-from night_crawler.state.auth_state import AuthState
+from night_crawler.state.auth_state import get_session
 
 
 class SourcesState(rx.State):
@@ -18,7 +18,7 @@ class SourcesState(rx.State):
 
     @rx.event
     async def load_sources(self):
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         if not auth.is_authenticated:
             return rx.redirect("/login")
         try:
@@ -55,7 +55,7 @@ class SourcesState(rx.State):
             "name": form_data.get("name", "").strip(),
             "url": forms.blank_to_none(form_data.get("url")),
         }
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             if self.editing_source_id:
                 await api_client.update_source(
@@ -71,7 +71,7 @@ class SourcesState(rx.State):
 
     @rx.event
     async def delete_source(self, source_id: str):
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             await api_client.delete_source(auth.token, source_id)
         except api_client.ApiError as exc:

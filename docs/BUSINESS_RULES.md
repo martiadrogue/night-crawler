@@ -86,11 +86,29 @@ Discover and extract all foodservice venues (restaurants, bars, fast food, etc.)
 
 ## 8. Authentication Abuse Protection
 
-* Failed logins are counted by normalized email and source IP in Redis.
-* Five failed logins for one email, or 20 from one IP, temporarily block
-  further login attempts for the remainder of the 15-minute window.
-* Successful login clears the email's failed-login counter.
-* Registration is limited to 10 attempts per source IP per 15-minute
-  window, including successful registrations.
-* Blocked requests receive HTTP 429 with a clear validation message.
-  If Redis is unavailable, authentication fails closed with HTTP 502.
+* Logging in, signing up, and passwords are Keycloak's; the API has no
+  login of its own, so there is nothing else to protect.
+* Keycloak's brute-force detection is on for the `night-crawler` realm:
+  repeated failed logins temporarily lock the account, with Keycloak's
+  default thresholds and wait times (changed in its admin console,
+  **Realm settings → Security defenses**).
+* Keycloak's login page answers a wrong email and a wrong password
+  alike, so it never reveals which accounts exist.
+* Password rules (at least 8 characters, an uppercase letter, a
+  lowercase letter, and a digit) are checked by the API only when an
+  admin sets a temporary password (`/api/users`); passwords users choose
+  themselves follow the realm's password policy.
+
+## 9. User Accounts
+
+* Accounts live in Keycloak; admins manage them through `/api/users`.
+* Accounts are disabled, never deleted. A disabled user can no longer
+  log in, and everything they created (Crawlers, versions, runs,
+  Instruction Generations) stays, still linked to them.
+* An admin-created account, and a password an admin sets, is
+  temporary: the user must choose a new one at their next login.
+* New accounts always start with the `user` role; only an admin's
+  update changes it.
+* The last enabled admin can be neither demoted nor disabled
+  (HTTP 400). Disabled admins don't count.
+* An email belongs to one account only (HTTP 400 if taken).

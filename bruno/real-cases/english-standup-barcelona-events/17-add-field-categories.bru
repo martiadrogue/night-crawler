@@ -1,0 +1,32 @@
+meta {
+  name: Add field categories
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{englishStandupEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "div.eventlist-cats a",
+    "type": "value",
+    "title": "categories",
+    "parent_selector_id": "{{englishStandupIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The event's first category, as text (e.g. `The Offenders`). The
+  Comedy Clubhouse crawler writes a list here; these events have one
+  category each.
+}

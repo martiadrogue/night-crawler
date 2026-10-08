@@ -4,7 +4,8 @@ Row checks: a required field is empty (the row is dropped), a unique
 field repeats an earlier row's value (the later row is dropped), and a
 value isn't of its field's type or doesn't match its pattern (kept, but
 the dataset is invalid). Dataset check: none of the Crawler's fields
-may be empty in every row (DOMAIN_MODEL §5.4).
+may be empty in every row (DOMAIN_MODEL §5.4). The completeness rate
+is reported alongside, and never decides validity.
 """
 
 import json
@@ -44,6 +45,7 @@ def validate_dataset_rows(
         type_mismatches=_count_mismatches(kept, rules, _is_of_type),
         pattern_mismatches=_count_mismatches(kept, rules, _matches_pattern),
         empty_columns=_empty_columns(kept, fields),
+        completeness_rate=_completeness_rate(kept, fields),
     )
     return kept, _with_verdict(report)
 
@@ -173,6 +175,15 @@ def _empty_columns(rows: list[dict[str, Any]], fields: list[str]) -> tuple[str, 
     return tuple(
         name for name in fields if all(is_empty(row.get(name)) for row in rows)
     )
+
+
+def _completeness_rate(rows: list[dict[str, Any]], fields: list[str]) -> float | None:
+    """Return the share of filled cells, or `None` without any cell."""
+    cells = len(rows) * len(fields)
+    if not cells:
+        return None
+    filled = sum(not is_empty(row.get(name)) for row in rows for name in fields)
+    return filled / cells
 
 
 def _with_verdict(report: DatasetValidation) -> DatasetValidation:

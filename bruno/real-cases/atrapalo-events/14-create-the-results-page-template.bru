@@ -1,0 +1,38 @@
+meta {
+  name: Create the results page template
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/crawler-versions/{{atrapaloVersionId}}/templates
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "action": "GET",
+    "url": "https://www.atrapalo.com/entradas/barcelona/monologos/es_ajax/{{listing_page}}",
+    "headers": {
+      "Accept-Language": "es-ES,es;q=0.9"
+    }
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("atrapaloResultsPageTemplateId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The other result pages: `{{listing_page}}` (a crawler placeholder:
+  Bruno leaves it as written) fans out over the links page 1 found
+  (`p-2/` …), and feeds itself from each page's own links, so a page only
+  reachable from a later one still runs, each once.
+}

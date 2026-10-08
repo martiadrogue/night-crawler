@@ -1,0 +1,100 @@
+// Ships this Compose project's container logs to Loki, and the app's
+// OTLP traces and metrics to Tempo and Prometheus (end of file).
+//
+// Labels stay few and bounded (`service`, `container`, `level`):
+// `execution_id` and `logger` stay inside the JSON line and are
+// filtered with `| json | execution_id="..."` in Grafana, since a label
+// per run would create one Loki stream per run.
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+
+  filter {
+    name   = "label"
+    values = ["com.docker.compose.project=night-crawler"]
+  }
+}
+
+discovery.relabel "containers" {
+  targets = []
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "containers" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.containers.targets
+  relabel_rules = discovery.relabel.containers.rules
+  forward_to    = [loki.process.json.receiver]
+}
+
+// Lines that are not JSON (MongoDB, RabbitMQ, Reflex...) pass through
+// unchanged, just without a `level` label.
+loki.process "json" {
+  stage.json {
+    expressions = { level = "level" }
+  }
+
+  stage.labels {
+    values = { level = "" }
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// Traces and metrics the app pushes over OTLP/HTTP
+// (core/telemetry.py, OTEL_EXPORTER_OTLP_ENDPOINT=http://alloy:4318).
+otelcol.receiver.otlp "app" {
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    metrics = [otelcol.processor.batch.app.input]
+    traces  = [otelcol.processor.batch.app.input]
+  }
+}
+
+otelcol.processor.batch "app" {
+  output {
+    metrics = [otelcol.exporter.prometheus.app.input]
+    traces  = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+// `crawler.requests` becomes `crawler_requests_total`; each process's
+// `service.name` / `service.instance.id` become `job` / `instance`.
+otelcol.exporter.prometheus "app" {
+  forward_to = [prometheus.remote_write.local.receiver]
+}
+
+prometheus.remote_write "local" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}
+
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = "tempo:4317"
+
+    tls {
+      insecure = true
+    }
+  }
+}

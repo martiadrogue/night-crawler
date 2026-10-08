@@ -1,0 +1,30 @@
+meta {
+  name: Add field timezone
+  type: http
+  seq: 26
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{atrapaloShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "'Europe/Madrid'",
+    "type": "value",
+    "title": "timezone",
+    "parent_selector_id": "{{atrapaloEventsIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  A constant: the dates are converted to Barcelona time.
+}

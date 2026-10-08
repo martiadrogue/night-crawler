@@ -1,0 +1,32 @@
+meta {
+  name: Add the dates iterator
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{tintaRojaShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(//div[@id='next-event-sessions']/div)",
+    "type": "iterator"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("tintaRojaDatesIteratorId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  One `events` row per date of "Otras fechas del evento".
+}

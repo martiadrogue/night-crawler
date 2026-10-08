@@ -5,10 +5,16 @@
 		"../docker-compose.override.yml"
 	],
 	"service": "web",
+	// Runs on the host before Compose starts: `keycloak` joins the
+	// external `identity` network, which Compose won't create (`make up`
+	// does the same through its `identity-network` target).
+	"initializeCommand": "docker network inspect identity >/dev/null 2>&1 || docker network create identity",
 	"runServices": [
 		"db",
 		"redis",
 		"rabbitmq",
+		"keycloak_db",
+		"keycloak",
 		"web",
 		"celery_worker",
 		"celery_beat",

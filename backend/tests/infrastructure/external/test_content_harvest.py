@@ -186,3 +186,156 @@ async def test_a_body_claiming_json_must_parse():
         await harvest_response(
             _snapshot(body="<html>", content_type="application/json"), []
         )
+
+
+@pytest.mark.anyio
+async def test_format_epoch_turns_unix_seconds_into_a_date():
+    body = '{"events": [{"start": 1791484200, "label": "1791484200"}]}'
+    harvested = await _harvest(
+        [
+            _selector("events", "events", "iterator"),
+            _selector(
+                "utc",
+                "format_epoch(start, '%Y-%m-%d %H:%M:%S', 'UTC')",
+                parent="events",
+                title="utc",
+            ),
+            _selector(
+                "madrid",
+                "format_epoch(start, '%Y-%m-%d %H:%M:%S', 'Europe/Madrid')",
+                parent="events",
+                title="madrid",
+            ),
+            _selector(
+                "text",
+                "format_epoch(label, '%d/%m/%Y', 'UTC')",
+                parent="events",
+                title="text",
+            ),
+        ],
+        body=body,
+        content_type="application/json",
+    )
+
+    assert ["2026-10-08 18:30:00"] == harvested["utc[]"]
+    assert ["2026-10-08 20:30:00"] == harvested["madrid[]"]
+    assert ["08/10/2026"] == harvested["text[]"]
+
+
+@pytest.mark.anyio
+async def test_format_epoch_leaves_a_value_it_cannot_read_empty():
+    body = '{"start": "soon", "missing": null, "when": 1791491400}'
+    harvested = await _harvest(
+        [
+            _selector("a", "format_epoch(start, '%Y', 'UTC')", title="not_a_number"),
+            _selector("b", "format_epoch(missing, '%Y', 'UTC')", title="null"),
+            _selector("c", "format_epoch(when, '%Y', 'Mars/Olympus')", title="bad_tz"),
+        ],
+        body=body,
+        content_type="application/json",
+    )
+
+    assert None is harvested.get("not_a_number")
+    assert None is harvested.get("null")
+    assert None is harvested.get("bad_tz")
+
+
+@pytest.mark.anyio
+async def test_json_ld_in_an_html_script_is_read_with_jmespath():
+    page = """
+<html><head>
+<script type="application/ld+json">{"@type": "Product", "name": "Show"}</script>
+<script type="application/ld+json">
+[{"@type": "ComedyEvent", "startDate": "2026-10-08T19:30:00+02:00",
+  "location": {"name": "Teatre Coliseum"}},
+ {"@type": "ComedyEvent", "startDate": "2026-10-09T19:00:00+02:00",
+  "location": {"name": "Teatre Coliseum"}}]
+</script>
+<script>var notJson = 1;</script>
+</head><body><h1>Show</h1></body></html>
+"""
+    harvested = await _harvest(
+        [
+            _selector(
+                "scripts",
+                "//script[@type='application/ld+json'][contains(., 'ComedyEvent')]",
+                "iterator",
+            ),
+            _selector(
+                "events", "[?\"@type\" == 'ComedyEvent']", "iterator", parent="scripts"
+            ),
+            _selector("start", "startDate", parent="events", title="start"),
+            _selector("venue", "location.name", parent="events", title="venue"),
+        ],
+        body=page,
+    )
+
+    assert [
+        "2026-10-08T19:30:00+02:00",
+        "2026-10-09T19:00:00+02:00",
+    ] == harvested["start[]"]
+    assert ["Teatre Coliseum", "Teatre Coliseum"] == harvested["venue[]"]
+
+
+@pytest.mark.anyio
+async def test_format_iso_turns_iso_text_into_a_date_in_a_timezone():
+    body = (
+        '{"offset": "2026-10-08T19:30:00+02:00", "utc": "2026-10-08T17:30:00Z",'
+        ' "naive": "2026-10-08T19:30:00", "bad": "soon"}'
+    )
+    madrid = "'%Y-%m-%d %H:%M:%S', 'Europe/Madrid'"
+    harvested = await _harvest(
+        [
+            _selector("a", f"format_iso(offset, {madrid})", title="offset"),
+            _selector("b", f"format_iso(utc, {madrid})", title="utc"),
+            _selector("c", f"format_iso(naive, {madrid})", title="naive"),
+            _selector("d", f"format_iso(bad, {madrid})", title="bad"),
+            _selector("e", f"format_iso(missing, {madrid})", title="missing"),
+        ],
+        body=body,
+        content_type="application/json",
+    )
+
+    assert "2026-10-08 19:30:00" == harvested["offset"]
+    assert "2026-10-08 19:30:00" == harvested["utc"]
+    assert "2026-10-08 19:30:00" == harvested["naive"]
+    assert None is harvested.get("bad")
+    assert None is harvested.get("missing")
+
+
+@pytest.mark.anyio
+async def test_placeholder_reads_the_runs_value_inside_jmespath():
+    harvested = await _harvest(
+        [
+            _selector("events", "events", "iterator"),
+            _selector(
+                "url",
+                "join('', ['https://example.com', placeholder('show_path'), '#', at])",
+                parent="events",
+                title="source_url",
+            ),
+            _selector("none", "placeholder('missing')", title="missing"),
+        ],
+        body='{"events": [{"at": "2026-10-08"}, {"at": "2026-10-09"}]}',
+        content_type="application/json",
+        placeholders={"show_path": "/entradas/show_e1/"},
+    )
+
+    assert [
+        "https://example.com/entradas/show_e1/#2026-10-08",
+        "https://example.com/entradas/show_e1/#2026-10-09",
+    ] == harvested["source_url[]"]
+    assert None is harvested.get("missing")
+
+
+@pytest.mark.anyio
+async def test_an_xpath_string_result_is_harvested_as_plain_text():
+    harvested = await _harvest(
+        [
+            _selector("venues", "div.venue", "iterator"),
+            _selector("link", "(string(.//a/@href))", parent="venues", title="link"),
+        ]
+    )
+
+    assert ["/v/1", "/v/2"] == harvested["link[]"]
+    assert all(str is type(link) for link in harvested["link[]"])

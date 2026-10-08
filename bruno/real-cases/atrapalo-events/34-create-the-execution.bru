@@ -1,0 +1,33 @@
+meta {
+  name: Create the execution
+  type: http
+  seq: 34
+}
+
+post {
+  url: {{baseUrl}}/api/crawlers/{{atrapaloCrawlerId}}/executions
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "context": {}
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("atrapaloExecutionId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Creates a `pending` run with nothing seeded: page 1, the other result
+  pages, then one page per show, at most one every 3 seconds (about 12
+  minutes for ~180 shows).
+}

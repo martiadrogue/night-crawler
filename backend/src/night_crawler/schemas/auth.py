@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 UserRole = Literal["admin", "user", "viewer"]
-"""The roles a user can hold; mirrors the `users` validator."""
+"""The roles a user can hold; mirrors the Keycloak realm roles."""
 
 
 class PasswordValidationMixin:
@@ -36,17 +36,21 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase, PasswordValidationMixin):
-    """Body for registering or admin-creating an account.
+    """Body for an admin creating an account.
 
     There is no `role`: new accounts always start as `user`, and roles
-    change only through an admin's update.
+    change only through an admin's update. An admin-created account's
+    password is temporary: the user replaces it at their first login.
     """
 
     password: str = Field(min_length=8, max_length=128)
 
 
 class UserUpdate(BaseModel):
-    """Body for an admin's partial user update; unset fields stay."""
+    """Body for an admin's partial user update; unset fields stay.
+
+    A new `password` is temporary, like a created account's.
+    """
 
     email: EmailStr | None = None
     password: str | None = Field(default=None, min_length=8, max_length=128)
@@ -69,18 +73,19 @@ class UserUpdate(BaseModel):
         return value
 
 
-class SessionCreate(UserBase, PasswordValidationMixin):
-    """Body for logging in."""
-
-    password: str = Field(min_length=8, max_length=128)
-
-
 class UserOut(UserBase):
-    """A user as returned by the API, without the password hash."""
+    """A user as returned by the API, without any password.
+
+    `role` is `None` for an account holding none of the API's roles;
+    `is_enabled` is `False` once an admin disabled it; `created_at` is
+    `None` when Keycloak has no creation time (accounts imported with
+    the realm).
+    """
 
     id: str
-    role: str = "user"
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    role: str | None = "user"
+    is_enabled: bool = True
+    created_at: datetime | None = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class UsersPageOut(BaseModel):
@@ -94,20 +99,3 @@ class UsersPageOut(BaseModel):
     limit: int
     offset: int
     has_more: bool
-
-
-class TokenOut(BaseModel):
-    """An access token and the role it was issued for."""
-
-    access_token: str
-    role: str = "user"
-    token_type: str = "bearer"
-
-
-class TokenPayloadOut(BaseModel):
-    """The verified claims of a decoded access token."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    sub: str
-    exp: datetime

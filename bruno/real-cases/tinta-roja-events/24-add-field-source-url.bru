@@ -1,0 +1,35 @@
+meta {
+  name: Add field source_url
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{tintaRojaShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(concat(substring(concat('https://www.tinta-roja.cat', substring-before(string(.//a[contains(@class, 'btn')]/@href), '/new_checkout'), '?event_session_id=', substring-after(string(.//a[contains(@class, 'btn')]/@href), 'event_session_id=')), 1, number(contains(string(.//a[contains(@class, 'btn')]/@href), 'event_session_id=')) * string-length(concat('https://www.tinta-roja.cat', substring-before(string(.//a[contains(@class, 'btn')]/@href), '/new_checkout'), '?event_session_id=', substring-after(string(.//a[contains(@class, 'btn')]/@href), 'event_session_id=')))), substring(concat('https://www.tinta-roja.cat/es/espectaculos/', substring-after(//a[starts-with(@href, '/en/espectaculos/')]/@href, '/en/espectaculos/'), '#', translate(concat('20', substring(normalize-space(.//p[contains(@class, 'lead')]), 12, 2), '-', substring('0', 1, number((string-length(substring-before('ene feb mar abr may jun jul ago sep oct nov dic', substring(normalize-space(.//p[contains(@class, 'lead')]), 8, 3))) div 4 + 1) < 10)), (string-length(substring-before('ene feb mar abr may jun jul ago sep oct nov dic', substring(normalize-space(.//p[contains(@class, 'lead')]), 8, 3))) div 4 + 1), '-', substring(normalize-space(.//p[contains(@class, 'lead')]), 5, 2), ' ', substring(normalize-space(.//p[contains(@class, 'lead')]), 17, 5), ':00'), ' ', 'T')), 1, number(not(contains(string(.//a[contains(@class, 'btn')]/@href), 'event_session_id='))) * string-length(concat('https://www.tinta-roja.cat/es/espectaculos/', substring-after(//a[starts-with(@href, '/en/espectaculos/')]/@href, '/en/espectaculos/'), '#', translate(concat('20', substring(normalize-space(.//p[contains(@class, 'lead')]), 12, 2), '-', substring('0', 1, number((string-length(substring-before('ene feb mar abr may jun jul ago sep oct nov dic', substring(normalize-space(.//p[contains(@class, 'lead')]), 8, 3))) div 4 + 1) < 10)), (string-length(substring-before('ene feb mar abr may jun jul ago sep oct nov dic', substring(normalize-space(.//p[contains(@class, 'lead')]), 8, 3))) div 4 + 1), '-', substring(normalize-space(.//p[contains(@class, 'lead')]), 5, 2), ' ', substring(normalize-space(.//p[contains(@class, 'lead')]), 17, 5), ':00'), ' ', 'T'))))))",
+    "type": "value",
+    "title": "source_url",
+    "parent_selector_id": "{{tintaRojaDatesIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The date's own page when the site sells its tickets
+  (`/es/espectaculos/{show}?event_session_id=…`, from the booking link);
+  otherwise (a show booked elsewhere, e.g. on linktr.ee) the show's page
+  plus `#{date}`, so each date stays unique. XPath 1.0 has no `if`: each
+  branch is cut to its whole length or to nothing (`substring(s, 1, 0)`)
+  by whether the link carries an `event_session_id`.
+}

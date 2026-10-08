@@ -1,0 +1,31 @@
+meta {
+  name: Add field name
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{comedyClubhouseEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "title",
+    "type": "value",
+    "title": "name",
+    "parent_selector_id": "{{comedyClubhouseIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The event's title. A few contain HTML entities as the site sends
+  them (`&#8211;` for a dash, `&#038;` for `&`).
+}

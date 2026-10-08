@@ -1,15 +1,22 @@
 """MongoDB storage for the CSV each Crawler Execution produced."""
 
-from typing import Any
-
 from night_crawler.domain.model.entities import CrawlerExecutionDataset
 from night_crawler.domain.ports.repositories import (
     AbstractCrawlerExecutionDatasetRepository,
+    ExecutionDatasetSummary,
 )
 from night_crawler.infrastructure.db.mongo_repository import (
     MongoRepository,
     translate_errors,
 )
+
+SUMMARY_FIELDS = {
+    "crawler_execution_id": 1,
+    "row_count": 1,
+    "import_metrics": 1,
+    "validation": 1,
+}
+"""The fields a run listing reads from each dataset."""
 
 
 class MongoCrawlerExecutionDatasetRepository(
@@ -28,20 +35,24 @@ class MongoCrawlerExecutionDatasetRepository(
         """Return the execution's dataset, if it has one."""
         return await self._find_one({"crawler_execution_id": execution_id})
 
-    async def get_validations_by_crawler_execution_ids(
+    async def get_summaries_by_crawler_execution_ids(
         self, execution_ids: list[str]
-    ) -> dict[str, dict[str, Any] | None]:
-        """Return each execution's validation report, not its CSV."""
+    ) -> dict[str, ExecutionDatasetSummary]:
+        """Return each execution's counts and report, not its CSV."""
         with translate_errors(self.conflict_message):
             cursor = self._collection.find(
                 {"crawler_execution_id": {"$in": execution_ids}},
-                {"crawler_execution_id": 1, "validation": 1},
+                SUMMARY_FIELDS,
                 session=self._session,
             )
-            documents = await cursor.to_list()
+            db_datasets = await cursor.to_list()
         return {
-            document["crawler_execution_id"]: document.get("validation")
-            for document in documents
+            db_dataset["crawler_execution_id"]: ExecutionDatasetSummary(
+                row_count=db_dataset.get("row_count", 0),
+                import_metrics=db_dataset.get("import_metrics", {}),
+                validation=db_dataset.get("validation"),
+            )
+            for db_dataset in db_datasets
         }
 
     async def save(self, dataset: CrawlerExecutionDataset) -> CrawlerExecutionDataset:

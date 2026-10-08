@@ -1,0 +1,38 @@
+meta {
+  name: Create the show template
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/api/crawler-versions/{{atrapaloVersionId}}/templates
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "action": "GET",
+    "url": "https://www.atrapalo.com{{show_path}}",
+    "headers": {
+      "Accept-Language": "es-ES,es;q=0.9"
+    }
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("atrapaloShowTemplateId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  One request per distinct show (`{{show_path}}`, a crawler placeholder).
+  Each show page carries schema.org JSON-LD: a `ComedyEvent` per
+  performance, with its ISO `startDate`, venue and address. A show with
+  no scheduled dates (open-date, on request) has none, and gives no rows.
+}

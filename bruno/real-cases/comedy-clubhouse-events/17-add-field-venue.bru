@@ -1,0 +1,30 @@
+meta {
+  name: Add field venue
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{comedyClubhouseEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "venue.venue",
+    "type": "value",
+    "title": "venue",
+    "parent_selector_id": "{{comedyClubhouseIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The venue's name, e.g. `The Clubhouse: Laietana`.
+}

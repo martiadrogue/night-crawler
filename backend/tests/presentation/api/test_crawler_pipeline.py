@@ -68,7 +68,9 @@ async def test_build_a_version_tree_publish_and_create_an_execution(
     assert 201 == execution.status_code
     assert "pending" == execution.json()["status"]
     assert "priority" == execution.json()["queue"]
-    assert [execution.json()["id"]] == [item["id"] for item in executions.json()]
+    assert [execution.json()["id"]] == [
+        item["id"] for item in executions.json()["items"]
+    ]
     assert draft["id"] == fetched.json()["crawler_version_id"]
     assert [(execution.json()["id"], "priority")] == execution_dispatcher.dispatched
 

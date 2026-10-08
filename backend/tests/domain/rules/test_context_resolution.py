@@ -56,3 +56,16 @@ def test_a_missing_placeholder_is_refused():
         resolve_template_runs(_template(), {"parish[]": ["Canillo"]})
 
     assert "api_key" == exc_info.value.placeholder
+
+
+def test_a_value_listed_twice_runs_once():
+    runs = resolve_template_runs(
+        _template(url="https://example.com{{show_path}}", body=None, headers={}),
+        {"show_path[]": ["/a", "/b", "/a", {"k": 1}, {"k": 1}]},
+    )
+
+    assert [
+        "https://example.com/a",
+        "https://example.com/b",
+        'https://example.com{"k": 1}',
+    ] == [run.url for run in runs]

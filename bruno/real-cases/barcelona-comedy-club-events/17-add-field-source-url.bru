@@ -1,0 +1,32 @@
+meta {
+  name: Add field source_url
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{barcelonaComedyClubEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "join('', ['https://barcelonacomedyclub.com/?p=', to_string(event_id), '#ri-', to_string(ri)])",
+    "type": "value",
+    "title": "source_url",
+    "parent_selector_id": "{{barcelonaComedyClubIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The show's page (`/?p={id}` redirects to it) plus the date's repeat
+  index as a fragment, so every date stays unique. The response has no
+  per-date URL; the fragment doesn't select the date on the site.
+}

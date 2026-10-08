@@ -1,0 +1,24 @@
+meta {
+  name: Create the Barcelona Comedy Club source
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/sources
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Barcelona Comedy Club",
+    "url": "https://barcelonacomedyclub.com"
+  }
+}
+
+tests {
+  test("creates it, or it already exists", function () {
+    expect([201, 409]).to.include(res.status);
+  });
+}

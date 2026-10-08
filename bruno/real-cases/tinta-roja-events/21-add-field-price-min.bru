@@ -1,0 +1,30 @@
+meta {
+  name: Add field price_min
+  type: http
+  seq: 21
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{tintaRojaShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(substring-before(normalize-space(.//div[contains(@class, 'flex-column')]/text()[normalize-space()]), '€'))",
+    "type": "value",
+    "title": "price_min",
+    "parent_selector_id": "{{tintaRojaDatesIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The booking price in euros: the number before the first `€` (`10`).
+}

@@ -1,0 +1,32 @@
+meta {
+  name: Add the show_path selector
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{tintaRojaListingTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(substring-before(@href, '?'))",
+    "type": "value",
+    "title": "show_path",
+    "parent_selector_id": "{{tintaRojaShowsIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The show's path without the session (`/es/espectaculos/el-asado-stand-up-2957`).
+  Not a Dataset field, so it goes to the Context as `show_path[]`, which
+  the show template's `{{show_path}}` fans out over: one request per show.
+}

@@ -1,4 +1,4 @@
-"""Dataset CSV exports on the local filesystem."""
+"""Dataset CSVs on the local filesystem, their only copy."""
 
 import asyncio
 import os
@@ -56,6 +56,28 @@ class LocalDatasetExportStorage(AbstractDatasetExportStorage):
             ) from error
         return str(target)
 
+    async def read(self, file_path: str) -> str:
+        """Return the CSV at `file_path`, read off the event loop.
+
+        Only files under the base folder are read, so a stored path can
+        never point the API at another file on the host.
+
+        Raises:
+            ExternalServiceException: the path is outside the base
+                folder, or the file is missing or unreadable.
+        """
+        path = Path(file_path).resolve()
+        if not path.is_relative_to(self._base_dir.resolve()):
+            raise ExternalServiceException(
+                f"Refused to read {file_path}: outside the dataset CSV folder."
+            )
+        try:
+            return await asyncio.to_thread(_read, path)
+        except OSError as error:
+            raise ExternalServiceException(
+                f"Could not read the dataset CSV at {path}: {error}"
+            ) from error
+
     def _path(self, stage: str, file_stem: str) -> Path:
         """Return where a run's CSV lives at `stage`."""
         return self._base_dir / stage / f"{file_stem}.csv"
@@ -69,6 +91,12 @@ def _write(path: Path, csv_content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as file:
         file.write(csv_content)
+
+
+def _read(path: Path) -> str:
+    """Read a file as written, CRLF line endings included."""
+    with path.open(encoding="utf-8", newline="") as file:
+        return file.read()
 
 
 def _move(source: Path, target: Path) -> None:

@@ -29,7 +29,9 @@ async def get_context(
     read_repositories: AbstractReadRepositories = Depends(get_read_repositories),
     current_user: UserOut = Depends(get_current_user),
 ) -> CrawlerContextOut:
-    """Get the latest execution's Context, which the next run inherits.
+    """Get the latest execution's Context and the keys selectors set.
+
+    The next run inherits every key except `harvested_keys`.
 
     Raises:
         ValidationException: 404 if the Crawler is missing or has no
@@ -52,7 +54,8 @@ async def set_context_value(
 
     Raises:
         ValidationException: 404 if the Crawler is missing or has no
-            execution yet; 400 if the key or value breaks the rules.
+            execution yet; 400 if the key or value breaks the rules;
+            409 if a selector of the published version sets the key.
     """
     return await crawler_context_service.set_context_value(
         write_repositories, current_user, crawler_id, key, value_input

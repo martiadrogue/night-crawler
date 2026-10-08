@@ -3,7 +3,16 @@
 What a selector reads depends on its `source` and the response:
 
 - `content`, HTML: XPath or CSS (`domain/rules/selector_paths.py`).
-- `content`, JSON: JMESPath.
+  An iterator match that is a `<script type="application/ld+json">`
+  (schema.org data) is read as JSON: its children use JMESPath.
+- `content`, JSON: JMESPath, plus `format_epoch(seconds, format,
+  timezone)`: Unix seconds (a number or numeric text) as `strftime`
+  text in that IANA timezone, e.g. `format_epoch(start, '%Y-%m-%d
+  %H:%M:%S', 'Europe/Madrid')`; empty when either can't be read.
+  `format_iso(text, format, timezone)` does the same for ISO 8601 text
+  (`2026-10-08T19:30:00+02:00`, e.g. schema.org's `startDate`), and
+  `placeholder(name)` returns the run's value for a placeholder (e.g.
+  the `show_path` a page was fanned out over).
 - `headers`: a regex over each response header, written as one
   `name: value` line with the name lower-cased (so cookies are
   `set-cookie:` lines); a capture never runs into the next header.
@@ -21,9 +30,12 @@ import json
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import jmespath
+from jmespath import functions
 from lxml import etree
 from night_crawler.domain.exceptions import ExternalServiceException
 from night_crawler.domain.model.entities import MessageSelector
@@ -33,6 +45,65 @@ from night_crawler.domain.rules.selector_paths import is_xpath
 _LEAF_TYPES = ("value", "boolean")
 _ACTION_TYPES = ("click", "select")
 _HTML, _JSON, _TEXT = "html", "json", "text"
+
+
+class _CrawlerFunctions(functions.Functions):
+    """JMESPath's built-in functions, plus those crawled sites need.
+
+    One instance per harvest: `placeholder` reads that template run's
+    values.
+    """
+
+    def __init__(self, placeholders: dict[str, Any]) -> None:
+        """Keep the run's placeholder values for `placeholder`."""
+        super().__init__()
+        self._placeholders = placeholders
+
+    @functions.signature({"types": ["string"]})
+    def _func_placeholder(self, name: str) -> Any:
+        """Return the run's value for placeholder `name`, or `None`."""
+        return self._placeholders.get(name)
+
+    @functions.signature(
+        {"types": ["number", "string", "null"]},
+        {"types": ["string"]},
+        {"types": ["string"]},
+    )
+    def _func_format_epoch(
+        self, seconds: float | str | None, date_format: str, timezone: str
+    ) -> str | None:
+        """Return Unix seconds as `date_format` text in `timezone`.
+
+        A value that isn't a number, or an unknown timezone, gives
+        `None`: a field the site left unreadable is missing data, not
+        an error (CONTRIBUTING R1.6.7).
+        """
+        try:
+            moment = datetime.fromtimestamp(float(seconds), ZoneInfo(timezone))
+        except (TypeError, ValueError, OverflowError, OSError, ZoneInfoNotFoundError):
+            return None
+        return moment.strftime(date_format)
+
+    @functions.signature(
+        {"types": ["string", "null"]}, {"types": ["string"]}, {"types": ["string"]}
+    )
+    def _func_format_iso(
+        self, text: str | None, date_format: str, timezone: str
+    ) -> str | None:
+        """Return ISO 8601 text as `date_format` text in `timezone`.
+
+        A moment with an offset (`+02:00`, `Z`) is converted to
+        `timezone`; one without is taken as already in it. Text that
+        isn't ISO 8601, or an unknown timezone, gives `None`.
+        """
+        try:
+            zone = ZoneInfo(timezone)
+            moment = datetime.fromisoformat(text)
+        except (TypeError, ValueError, ZoneInfoNotFoundError):
+            return None
+        if None is moment.tzinfo:
+            return moment.replace(tzinfo=zone).strftime(date_format)
+        return moment.astimezone(zone).strftime(date_format)
 
 
 @dataclass(frozen=True)
@@ -83,6 +154,7 @@ class _HarvestWalk:
     url: str
     placeholders: dict[str, Any]
     interactor: PageInteractor | None
+    jmespath_options: jmespath.Options
     array_titles: set[str] = field(default_factory=set)
 
     async def harvest_level(
@@ -122,7 +194,7 @@ class _HarvestWalk:
             return _context_leaf_value(self.placeholders, selector)
         node, kind = self._target(scope, selector)
         if _JSON == kind:
-            return _json_leaf_value(node, selector)
+            return _json_leaf_value(node, selector, self.jmespath_options)
         matches = _read(node, kind, selector)
         if "boolean" == selector.type:
             return bool(matches)
@@ -157,13 +229,14 @@ class _HarvestWalk:
     ) -> list[dict[str, Any]]:
         """Harvest the children once per match, scoped to that match."""
         node, kind = self._target(scope, selector)
-        items = _items(node, kind, selector.path)
+        items = _items(node, kind, selector.path, self.jmespath_options)
         children = self.children_by_parent.get(selector.id, [])
         result: list[dict[str, Any]] = []
         for row in rows or [{}]:
             for item in items:
+                node, node_kind = _as_scope(item, kind)
                 result += await self.harvest_level(
-                    _Scope(item, kind, row, True), children
+                    _Scope(node, node_kind, row, True), children
                 )
         return result or rows
 
@@ -208,6 +281,30 @@ class _HarvestWalk:
         return result
 
 
+def _as_scope(item: Any, kind: str) -> tuple[Any, str]:
+    """Return an iterator match as its children read it.
+
+    A `<script>` whose `type` holds `json` (a page's schema.org JSON-LD)
+    is read as JSON, so its children use JMESPath; JSON it can't parse
+    is missing data, which its children find nothing in. Any other
+    match stays as matched.
+    """
+    if _HTML != kind or not _is_json_script(item):
+        return item, kind
+    try:
+        return json.loads(item.text or ""), _JSON
+    except ValueError:
+        return None, _JSON
+
+
+def _is_json_script(item: Any) -> bool:
+    """Tell whether an HTML match is a `<script>` holding JSON."""
+    return (
+        "script" == getattr(item, "tag", None)
+        and "json" in (item.get("type") or "").lower()
+    )
+
+
 async def harvest_response(
     snapshot: ResponseSnapshot,
     selectors: list[MessageSelector],
@@ -231,6 +328,7 @@ async def harvest_response(
         snapshot.url,
         snapshot.placeholders,
         interactor,
+        jmespath.Options(custom_functions=_CrawlerFunctions(snapshot.placeholders)),
     )
     rows = await walk.harvest_level(
         _Scope(root, kind, {}, False), children_by_parent.get(None, [])
@@ -260,18 +358,18 @@ def _parse_html(body: str) -> Any:
     return etree.HTML(body) if body.strip() else None
 
 
-def _items(node: Any, kind: str, path: str) -> list[Any]:
+def _items(node: Any, kind: str, path: str, options: jmespath.Options) -> list[Any]:
     """Return what an iterator loops over, for each kind of node."""
     if _TEXT == kind:
         return _regex_matches(path, node)
     if _JSON == kind:
-        return _json_items(node, path)
+        return _json_items(node, path, options)
     return _html_nodes(node, path)
 
 
-def _json_items(node: Any, path: str) -> list[Any]:
+def _json_items(node: Any, path: str, options: jmespath.Options) -> list[Any]:
     """Return a JMESPath result as items: a list is split, else one."""
-    result = None if None is node else jmespath.search(path, node)
+    result = None if None is node else jmespath.search(path, node, options=options)
     if None is result:
         return []
     return result if isinstance(result, list) else [result]
@@ -287,9 +385,13 @@ def _read(node: Any, kind: str, selector: MessageSelector) -> list[Any]:
     ]
 
 
-def _json_leaf_value(node: Any, selector: MessageSelector) -> Any:
+def _json_leaf_value(
+    node: Any, selector: MessageSelector, options: jmespath.Options
+) -> Any:
     """Return the JMESPath result as is, lists and objects included."""
-    result = None if None is node else jmespath.search(selector.path, node)
+    result = (
+        None if None is node else jmespath.search(selector.path, node, options=options)
+    )
     if "boolean" == selector.type:
         return result not in (None, [], {}, "")
     return result
@@ -335,9 +437,13 @@ def _html_nodes(node: Any, path: str) -> list[Any]:
 
 
 def _read_html_node(node: Any, target: str) -> str:
-    """Read a match: its text for `__text`, else the named attribute."""
+    """Read a match: its text for `__text`, else the named attribute.
+
+    An XPath string result is an lxml `str` subclass; it is returned as
+    a plain `str`, which JMESPath's type checks (e.g. `join`) accept.
+    """
     if isinstance(node, str):
-        return node
+        return str(node)
     if "__text" == target:
         return "".join(node.itertext()).strip()
     return node.get(target) or ""

@@ -7,6 +7,7 @@ from night_crawler.domain.bundles.request_executors import RequestExecutors
 from night_crawler.domain.ports.dataset_export_storage import (
     AbstractDatasetExportStorage,
 )
+from night_crawler.domain.ports.execution_metrics import AbstractExecutionMetrics
 from night_crawler.domain.ports.rate_limiter import AbstractRateLimiter
 
 
@@ -22,9 +23,11 @@ class ExecutionInfrastructure:
         executors: One request executor per render mode.
         rate_limiter: Paces requests per rate-limit key.
         export_storage: Where the run's CSV is exported.
+        execution_metrics: Records the run once it finishes.
     """
 
     repository_factories: RepositorySetFactories
     executors: RequestExecutors
     rate_limiter: AbstractRateLimiter
     export_storage: AbstractDatasetExportStorage
+    execution_metrics: AbstractExecutionMetrics

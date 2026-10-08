@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 from night_crawler import api_client
@@ -56,6 +58,25 @@ async def test_validation_errors_are_flattened(respond):
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize(
+    "error",
+    [httpx.ConnectError("refused"), httpx.ReadTimeout("slow")],
+    ids=["down", "timeout"],
+)
+async def test_an_unreachable_api_is_an_api_error(respond, error):
+    def unreachable(request):
+        raise error
+
+    respond(unreachable)
+
+    with pytest.raises(api_client.ApiError) as exc_info:
+        await api_client.list_crawlers("tok")
+
+    assert 503 == exc_info.value.status_code
+    assert "unreachable" in exc_info.value.message
+
+
+@pytest.mark.anyio
 async def test_a_missing_aid_is_none(respond):
     respond(
         lambda request: httpx.Response(404, json={"message": "Message aid not found."})
@@ -75,8 +96,6 @@ async def test_empty_responses_are_none_and_none_params_are_dropped(respond):
 
 
 ENDPOINTS = [
-    (api_client.register, ("e@x.io", "pw"), "POST", "/api/auth/register"),
-    (api_client.login, ("e@x.io", "pw"), "POST", "/api/auth/login"),
     (api_client.get_crawler, ("tok", "c1"), "GET", "/api/crawlers/c1"),
     (api_client.create_crawler, ("tok", {}), "POST", "/api/crawlers"),
     (api_client.update_crawler, ("tok", "c1", {}), "PATCH", "/api/crawlers/c1"),
@@ -157,6 +176,41 @@ ENDPOINTS = [
         "/api/rate-limits/r1",
     ),
     (api_client.delete_rate_limit, ("tok", "r1"), "DELETE", "/api/rate-limits/r1"),
+    (
+        api_client.import_instructions,
+        ("tok", "v1", "templates: {}"),
+        "PUT",
+        "/api/crawler-versions/v1/instructions",
+    ),
+    (
+        api_client.create_instruction_generation,
+        ("tok", "v1", "comedy shows"),
+        "POST",
+        "/api/crawler-versions/v1/instruction-generations",
+    ),
+    (
+        api_client.get_instruction_generation,
+        ("tok", "g1"),
+        "GET",
+        "/api/instruction-generations/g1",
+    ),
+    (api_client.get_execution, ("tok", "e1"), "GET", "/api/crawler-executions/e1"),
+    (
+        api_client.get_execution_history,
+        ("tok", "c1"),
+        "GET",
+        "/api/crawlers/c1/execution-history",
+    ),
+    (
+        api_client.get_execution_summary,
+        ("tok", "c1"),
+        "GET",
+        "/api/crawlers/c1/execution-summary",
+    ),
+    (api_client.list_users, ("tok", 0), "GET", "/api/users"),
+    (api_client.create_user, ("tok", {}), "POST", "/api/users"),
+    (api_client.update_user, ("tok", "u1", {}), "PATCH", "/api/users/u1"),
+    (api_client.disable_user, ("tok", "u1"), "DELETE", "/api/users/u1"),
 ]
 
 
@@ -205,27 +259,106 @@ async def test_set_context_value_sends_the_value_wrapped(respond):
 
 
 @pytest.mark.anyio
-async def test_download_execution_csv_returns_the_csv_text(respond):
+async def test_download_execution_sample_csv_returns_its_name_and_text(respond):
     seen = respond(
         lambda request: httpx.Response(
             200,
             text="item_id,name\r\np1,Casa\r\n",
-            headers={"content-type": "text/csv"},
+            headers={
+                "content-type": "text/csv",
+                "content-disposition": (
+                    'attachment; filename="c1_e1_20261007T065600Z-sample.csv"'
+                ),
+            },
         )
     )
 
-    csv_text = await api_client.download_execution_csv("tok", "e1")
+    filename, csv_text = await api_client.download_execution_sample_csv("tok", "e1")
 
+    assert "c1_e1_20261007T065600Z-sample.csv" == filename
     assert "item_id,name\r\np1,Casa\r\n" == csv_text
-    assert "/api/crawler-executions/e1/dataset.csv" == seen[0].url.path
+    assert "/api/crawler-executions/e1/dataset-sample.csv" == seen[0].url.path
     assert "Bearer tok" == seen[0].headers["authorization"]
 
 
 @pytest.mark.anyio
-async def test_download_execution_csv_raises_the_api_message(respond):
+async def test_a_sample_without_a_file_name_is_named_after_the_run(respond):
+    respond(lambda request: httpx.Response(200, text="item_id\r\n"))
+
+    filename, _csv_text = await api_client.download_execution_sample_csv("tok", "e1")
+
+    assert "e1-sample.csv" == filename
+
+
+@pytest.mark.anyio
+async def test_download_execution_sample_csv_raises_the_api_message(respond):
     respond(lambda request: httpx.Response(404, json={"message": "No CSV yet."}))
 
     with pytest.raises(api_client.ApiError) as exc_info:
-        await api_client.download_execution_csv("tok", "e1")
+        await api_client.download_execution_sample_csv("tok", "e1")
 
     assert "No CSV yet." == exc_info.value.message
+
+
+@pytest.mark.anyio
+async def test_export_instructions_returns_the_file_text(respond):
+    seen = respond(
+        lambda request: httpx.Response(
+            200, text="templates: {}\n", headers={"content-type": "application/yaml"}
+        )
+    )
+
+    text = await api_client.export_instructions("tok", "v1")
+
+    assert "templates: {}\n" == text
+    assert "/api/crawler-versions/v1/instructions" == seen[0].url.path
+
+
+@pytest.mark.anyio
+async def test_import_instructions_sends_the_file_as_is(respond):
+    seen = respond(lambda request: httpx.Response(200, json={"id": "v2"}))
+
+    version = await api_client.import_instructions("tok", "v1", "templates: {}\n")
+
+    assert {"id": "v2"} == version
+    assert b"templates: {}\n" == seen[0].content
+    assert "application/yaml" == seen[0].headers["content-type"]
+
+
+@pytest.mark.anyio
+async def test_create_instruction_generation_sends_the_prompt(respond):
+    seen = respond(
+        lambda request: httpx.Response(202, json={"id": "g1", "status": "pending"})
+    )
+
+    generation = await api_client.create_instruction_generation(
+        "tok", "v1", "comedy shows"
+    )
+
+    assert {"id": "g1", "status": "pending"} == generation
+    assert {"prompt": "comedy shows"} == json.loads(seen[0].content)
+
+
+@pytest.mark.anyio
+async def test_list_users_asks_for_the_page_at_offset(respond):
+    page = {"items": [], "limit": 50, "offset": 50, "has_more": False}
+    seen = respond(lambda request: httpx.Response(200, json=page))
+
+    listed = await api_client.list_users("tok", 50)
+
+    assert page == listed
+    assert {"limit": "50", "offset": "50"} == dict(seen[0].url.params)
+
+
+@pytest.mark.anyio
+async def test_get_execution_history_asks_for_the_days(respond):
+    seen = respond(lambda request: httpx.Response(200, json={"runs": []}))
+
+    await api_client.get_execution_history("tok", "c1", days=7)
+
+    assert {"days": "7"} == dict(seen[0].url.params)
+
+
+def test_logging_in_is_keycloak_s_not_the_api_s():
+    assert not hasattr(api_client, "login")
+    assert not hasattr(api_client, "register")

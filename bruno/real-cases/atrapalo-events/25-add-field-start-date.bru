@@ -1,0 +1,31 @@
+meta {
+  name: Add field start_date
+  type: http
+  seq: 25
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{atrapaloShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "format_iso(startDate, '%Y-%m-%d %H:%M:%S', 'Europe/Madrid')",
+    "type": "value",
+    "title": "start_date",
+    "parent_selector_id": "{{atrapaloEventsIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  `2026-10-08T19:30:00+02:00` → `2026-10-08 19:30:00` with the engine's
+  `format_iso` (ISO 8601 text in a timezone).
+}

@@ -1,5 +1,6 @@
 from night_crawler.domain.model.value_objects import Harvest
 from night_crawler.domain.rules.selector_tree import (
+    append_unique,
     flatten_harvest,
     merge_context_value,
     resolve_context_key,
@@ -44,3 +45,26 @@ def test_later_harvests_extend_lists_and_misses_never_erase():
     assert ["1", "2", "3"] == merge_context_value(["1"], ["2", "3"], True, False)
     assert ["1"] == merge_context_value(["1"], [], True, True)
     assert "old" == merge_context_value("old", None, False, True)
+
+
+def test_a_list_keeps_each_value_once_in_order_of_first_harvest():
+    assert ["a", "b", "c"] == append_unique([], ["a", "b", "a", "c", "b"])
+    assert ["a", "b", "c"] == append_unique(["a", "b"], ["b", "c", "a"])
+
+
+def test_values_compare_as_stored_with_their_types():
+    assert [1, "1", True] == append_unique([1], ["1", True, 1, "1"])
+    assert [{"lat": 1}, ["x"]] == append_unique(
+        [{"lat": 1}], [{"lat": 1}, ["x"], ["x"]]
+    )
+
+
+def test_merging_lists_keeps_values_unique():
+    assert ["p-2/", "p-3/"] == merge_context_value(
+        ["old"], ["p-2/", "p-3/", "p-2/"], True, True
+    )
+    assert ["p-2/", "p-3/", "p-4/"] == merge_context_value(
+        ["p-2/", "p-3/"], ["p-3/", "p-4/", "p-2/"], True, False
+    )
+    assert ["p-2/"] == merge_context_value(["p-2/"], [], True, False)
+    assert "same" == merge_context_value("same", "same", False, False)

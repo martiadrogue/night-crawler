@@ -2,6 +2,9 @@
 
 from fastapi import Depends, Query, Response, status
 from fastapi.routing import APIRouter
+from night_crawler.domain.ports.dataset_export_storage import (
+    AbstractDatasetExportStorage,
+)
 from night_crawler.domain.ports.execution_dispatcher import (
     AbstractExecutionDispatcher,
 )
@@ -11,6 +14,7 @@ from night_crawler.domain.ports.repository_sets import (
 )
 from night_crawler.presentation.api.dependencies import (
     get_current_user,
+    get_dataset_export_storage,
     get_execution_dispatcher,
     get_read_repositories,
     get_write_repositories,
@@ -18,10 +22,14 @@ from night_crawler.presentation.api.dependencies import (
 from night_crawler.schemas.auth import UserOut
 from night_crawler.schemas.crawler_execution import (
     CrawlerExecutionCreate,
+    CrawlerExecutionHistoryOut,
+    CrawlerExecutionHistoryQuery,
     CrawlerExecutionOut,
     CrawlerExecutionQuery,
     CrawlerExecutionsPageOut,
-    ExecutionStatus,
+    CrawlerExecutionSummaryOut,
+    CrawlerExecutionWindowQuery,
+    ExecutionQueue,
 )
 from night_crawler.services import crawler_execution_service
 
@@ -94,21 +102,69 @@ async def create_test_execution(
 
 @router.get(
     "/api/crawlers/{crawler_id}/executions",
-    response_model=list[CrawlerExecutionOut],
+    response_model=CrawlerExecutionsPageOut,
 )
 async def get_executions(
     crawler_id: str,
-    status_filter: ExecutionStatus | None = Query(default=None, alias="status"),
+    query: CrawlerExecutionHistoryQuery = Depends(),
     read_repositories: AbstractReadRepositories = Depends(get_read_repositories),
     current_user: UserOut = Depends(get_current_user),
-) -> list[CrawlerExecutionOut]:
-    """List a Crawler's runs, newest first; one capped page.
+) -> CrawlerExecutionsPageOut:
+    """List a Crawler's runs, newest first, one page at a time.
+
+    Filtered by `status` or `queue`; without a queue, test runs are
+    left out.
 
     Raises:
         ValidationException: 404 if the Crawler is missing.
     """
     return await crawler_execution_service.get_executions(
-        read_repositories, current_user, crawler_id, status=status_filter
+        read_repositories, current_user, crawler_id, query
+    )
+
+
+@router.get(
+    "/api/crawlers/{crawler_id}/execution-history",
+    response_model=CrawlerExecutionHistoryOut,
+)
+async def get_execution_history(
+    crawler_id: str,
+    query: CrawlerExecutionWindowQuery = Depends(),
+    read_repositories: AbstractReadRepositories = Depends(get_read_repositories),
+    current_user: UserOut = Depends(get_current_user),
+) -> CrawlerExecutionHistoryOut:
+    """Return a Crawler's runs of the last `days` days, with counts.
+
+    Up to 1,000 runs, newest first; the counts per outcome cover the
+    whole window. Without a queue, test runs are left out.
+
+    Raises:
+        ValidationException: 404 if the Crawler is missing.
+    """
+    return await crawler_execution_service.get_execution_history(
+        read_repositories, current_user, crawler_id, query
+    )
+
+
+@router.get(
+    "/api/crawlers/{crawler_id}/execution-summary",
+    response_model=CrawlerExecutionSummaryOut,
+)
+async def get_execution_summary(
+    crawler_id: str,
+    queue: ExecutionQueue | None = Query(default=None),
+    read_repositories: AbstractReadRepositories = Depends(get_read_repositories),
+    current_user: UserOut = Depends(get_current_user),
+) -> CrawlerExecutionSummaryOut:
+    """Return a Crawler's streak, success rate, and average duration.
+
+    Without a queue, test runs are left out.
+
+    Raises:
+        ValidationException: 404 if the Crawler is missing.
+    """
+    return await crawler_execution_service.get_execution_summary(
+        read_repositories, current_user, crawler_id, queue
     )
 
 
@@ -138,15 +194,47 @@ async def download_execution_csv(
     execution_id: str,
     read_repositories: AbstractReadRepositories = Depends(get_read_repositories),
     current_user: UserOut = Depends(get_current_user),
+    export_storage: AbstractDatasetExportStorage = Depends(get_dataset_export_storage),
 ) -> Response:
     """Download a finished run's dataset CSV as a file.
 
     Raises:
         ValidationException: 404 if the run, its Crawler, or its CSV is
             missing; a run has a CSV only once it has finished.
+        ExternalServiceException: 502 if the CSV's file is gone or
+            unreadable.
     """
     csv_file = await crawler_execution_service.get_execution_csv(
-        read_repositories, current_user, execution_id
+        read_repositories, current_user, export_storage, execution_id
+    )
+    return Response(
+        content=csv_file.csv_content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{csv_file.filename}"'},
+    )
+
+
+@router.get(
+    "/api/crawler-executions/{execution_id}/dataset-sample.csv",
+    response_class=Response,
+    responses={200: {"content": {"text/csv": {}}}},
+)
+async def download_execution_sample_csv(
+    execution_id: str,
+    read_repositories: AbstractReadRepositories = Depends(get_read_repositories),
+    current_user: UserOut = Depends(get_current_user),
+    export_storage: AbstractDatasetExportStorage = Depends(get_dataset_export_storage),
+) -> Response:
+    """Download a finished run's Sample CSV, for a data quality check.
+
+    Raises:
+        ValidationException: 404 if the run, its Crawler, or its CSV is
+            missing; a run has a CSV only once it has finished.
+        ExternalServiceException: 502 if the CSV's file is gone or
+            unreadable.
+    """
+    csv_file = await crawler_execution_service.get_execution_sample_csv(
+        read_repositories, current_user, export_storage, execution_id
     )
     return Response(
         content=csv_file.csv_content,

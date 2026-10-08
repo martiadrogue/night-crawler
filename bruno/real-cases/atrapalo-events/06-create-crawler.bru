@@ -1,0 +1,45 @@
+meta {
+  name: Create crawler
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/crawlers
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "title": "Barcelona comedy events - Atrápalo",
+    "source_id": "{{atrapaloSourceId}}",
+    "dataset_id": "{{eventsDatasetId}}",
+    "fields": [
+      "item_id",
+      "name",
+      "start_date",
+      "timezone",
+      "venue",
+      "address",
+      "organizers",
+      "image_url",
+      "source_url"
+    ]
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("atrapaloCrawlerId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  9 of the `events` Dataset's 15 fields: the show pages' schema.org data
+  has no end time, categories, or price per performance.
+}

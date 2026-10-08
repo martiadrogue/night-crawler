@@ -1,0 +1,22 @@
+meta {
+  name: Find the English Stand Up Barcelona source
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/sources
+  body: none
+  auth: inherit
+}
+
+script:post-response {
+  const source = res.body.find((item) => item.name === "English Stand Up Barcelona");
+  bru.setEnvVar("englishStandupSourceId", source.id);
+}
+
+tests {
+  test("lists the English Stand Up Barcelona source", function () {
+    expect(res.body.map((item) => item.name)).to.include("English Stand Up Barcelona");
+  });
+}

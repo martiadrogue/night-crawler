@@ -1,0 +1,35 @@
+meta {
+  name: Add the performances iterator
+  type: http
+  seq: 22
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{atrapaloShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "[@][] | [?\"@type\" == 'ComedyEvent']",
+    "type": "iterator",
+    "parent_selector_id": "{{atrapaloScriptsIteratorId}}"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("atrapaloEventsIteratorId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  One `events` row per `ComedyEvent`: per performance. `[@][]` first turns
+  the script's JSON into a list either way: a show with one performance
+  has a single `ComedyEvent` object, one with several an array of them.
+}

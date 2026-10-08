@@ -1,6 +1,14 @@
-x-mongo-env: &mongo-env
+# Pinned so the project's container labels match the filter in
+# `observability/alloy/config.alloy`, whatever the checkout is named.
+name: night-crawler
+
+x-app-env: &app-env
   MONGO_URL: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@db:27017/?replicaSet=rs0&authSource=admin
   MONGO_DATABASE: ${MONGO_DATABASE}
+  # Empty (telemetry off) unless `make up-observability` sets it.
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  # The API's Keycloak service account, for the Admin REST API.
+  KEYCLOAK_ADMIN_CLIENT_SECRET: ${KC_NIGHT_CRAWLER_API_SECRET:-}
 
 services:
   # --- DATABASE ---
@@ -87,6 +95,77 @@ services:
       timeout: 5s
       retries: 5
 
+  # --- IDENTITY PROVIDER ---
+  # Keycloak owns the users of Night Crawler and of Night Crawler
+  # Importer; it can't store them in MongoDB, hence its own Postgres.
+  keycloak_db:
+    image: postgres:17-alpine
+    container_name: night_crawler_keycloak_db
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4
+    container_name: night_crawler_keycloak
+    command: start
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak_db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      # Tokens always name http://localhost:8180 as their issuer, whether
+      # the browser or a container (http://keycloak:8080) fetched them;
+      # backchannel endpoints follow the request's host.
+      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      # Plain HTTP: TLS belongs to whatever proxy fronts it outside dev.
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+      # Master-realm admin, for the admin console only.
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}
+      # Read by the `${...}` placeholders in keycloak/realm-night-crawler.json.
+      KC_SEED_ADMIN_EMAIL: ${KC_SEED_ADMIN_EMAIL}
+      KC_SEED_ADMIN_PASSWORD: ${KC_SEED_ADMIN_PASSWORD}
+      KC_NIGHT_CRAWLER_UI_SECRET: ${KC_NIGHT_CRAWLER_UI_SECRET}
+      KC_NIGHT_CRAWLER_API_SECRET: ${KC_NIGHT_CRAWLER_API_SECRET}
+      KC_IMPORTER_UI_SECRET: ${KC_IMPORTER_UI_SECRET}
+      KC_IMPORTER_API_SECRET: ${KC_IMPORTER_API_SECRET}
+      # Each UI's public URL: its client's redirect URI and web origin.
+      KC_NIGHT_CRAWLER_UI_URL: ${KC_NIGHT_CRAWLER_UI_URL:-http://localhost:3000}
+      KC_IMPORTER_UI_URL: ${KC_IMPORTER_UI_URL:-http://localhost:3100}
+    ports:
+      - "8180:8080"
+    # `identity` is shared with the Importer's stack (`make up` creates it).
+    networks:
+      - default
+      - identity
+    depends_on:
+      keycloak_db:
+        condition: service_healthy
+    # The image has no curl: ask the management port's readiness probe
+    # over bash's /dev/tcp.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/localhost/9000 &&
+          printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          grep -q '"UP"' <&3
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
   # --- FASTAPI APPLICATION BASE ---
   web:
     build:
@@ -94,7 +173,7 @@ services:
     user: nightcrawler-app
     env_file:
       - .env
-    environment: *mongo-env
+    environment: *app-env
     depends_on:
       db:
         condition: service_healthy
@@ -110,7 +189,7 @@ services:
     user: nightcrawler-app
     env_file:
       - .env
-    environment: *mongo-env
+    environment: *app-env
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -126,7 +205,7 @@ services:
     user: nightcrawler-app
     env_file:
       - .env
-    environment: *mongo-env
+    environment: *app-env
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -139,12 +218,107 @@ services:
     user: nightcrawler-frontend
     env_file:
       - .env
+    environment:
+      # The `night-crawler-ui` client's secret, for the code exchange.
+      OIDC_CLIENT_SECRET: ${KC_NIGHT_CRAWLER_UI_SECRET:-}
     depends_on:
       web:
         condition: service_started
 
+  # --- OBSERVABILITY (opt-in: `make up-observability`) ---
+  # Metrics: Prometheus scrapes the API, RabbitMQ, and celery-exporter,
+  # and receives the app's own metrics from Alloy (remote write).
+  # Logs: Alloy reads every container's stdout and pushes it to Loki.
+  # Traces: the app pushes them to Alloy (OTLP), which sends them to
+  # Tempo. Grafana shows all three. See docs/ARCHITECTURE.md#observability.
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: night_crawler_prometheus
+    profiles: [observability]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+      # Alloy pushes the app's OpenTelemetry metrics here.
+      - --web.enable-remote-write-receiver
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  celery_exporter:
+    image: danihodovic/celery-exporter:0.12.0
+    container_name: night_crawler_celery_exporter
+    profiles: [observability]
+    environment:
+      CE_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672//
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  loki:
+    image: grafana/loki:3.5.3
+    container_name: night_crawler_loki
+    profiles: [observability]
+    command: -config.file=/etc/loki/loki-config.yaml
+    volumes:
+      - ./observability/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/loki
+
+  alloy:
+    image: grafana/alloy:v1.10.0
+    container_name: night_crawler_alloy
+    profiles: [observability]
+    command: run /etc/alloy/config.alloy --storage.path=/var/lib/alloy/data
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      # Read-only, but still lets Alloy list and read every container
+      # on the host: keep this stack to development machines.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+      - tempo
+
+  tempo:
+    image: grafana/tempo:2.8.2
+    container_name: night_crawler_tempo
+    profiles: [observability]
+    command: -config.file=/etc/tempo/tempo-config.yaml
+    volumes:
+      - ./observability/tempo/tempo-config.yaml:/etc/tempo/tempo-config.yaml:ro
+      - tempo_data:/var/tempo
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    container_name: night_crawler_grafana
+    profiles: [observability]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    ports:
+      - "3030:3000" # host 3000 is the Reflex frontend
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+
+networks:
+  identity:
+    name: identity
+    external: true
+
 volumes:
+  keycloak_db_data:
   mongo_data:
   mongo_config:
   redis_data:
   rabbitmq_data:
+  prometheus_data:
+  loki_data:
+  grafana_data:
+  tempo_data:

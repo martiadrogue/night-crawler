@@ -1,0 +1,27 @@
+# Scraped by the `prometheus` service (Compose profile `observability`).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # FastAPI request metrics; `/metrics` exists only when
+  # APP_ENV=development (main.py::setup_metrics).
+  - job_name: web
+    static_configs:
+      - targets: ["web:8000"]
+
+  # Per-queue metrics (`rabbitmq_queue_messages_ready{queue=...}`):
+  # the default `/metrics` endpoint only has node-wide totals.
+  - job_name: rabbitmq
+    metrics_path: /metrics/per-object
+    static_configs:
+      - targets: ["rabbitmq:15692"]
+
+  # Celery workers and task counts, built from the workers' task events.
+  - job_name: celery
+    static_configs:
+      - targets: ["celery_exporter:9808"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

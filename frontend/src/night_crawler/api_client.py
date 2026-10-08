@@ -2,10 +2,12 @@
 
 Every call runs inside a Reflex event handler on the Reflex backend,
 never in the browser: the browser only talks to Reflex over its state
-websocket, so the API needs no CORS setup.
+websocket, so the API needs no CORS setup. Logging in is Keycloak's
+(`oidc_client.py`); every function here takes its access token first.
 """
 
 import os
+import re
 from typing import Any
 from urllib.parse import quote
 
@@ -15,6 +17,7 @@ API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 TIMEOUT_SECONDS = 15.0
 TRANSPORT: httpx.AsyncBaseTransport | None = None
 """Replaced in tests with `httpx.MockTransport`; `None` uses the network."""
+UNREACHABLE_MESSAGE = "The API is unreachable. Try again shortly."
 
 
 class ApiError(Exception):
@@ -69,15 +72,31 @@ async def _send(
     token: str | None = None,
     json: object | None = None,
     params: dict | None = None,
+    text: str | None = None,
 ) -> httpx.Response:
-    """Send one request and return the response, raising on errors."""
+    """Send one request and return the response, raising on errors.
+
+    `text` is sent as is, as YAML, instead of `json`. An API that can't
+    be reached (down, restarting, timing out) is an `ApiError` 503 too,
+    so pages show it in their callout instead of crashing the handler.
+    """
     headers = {"Authorization": f"Bearer {token}"} if token else {}
-    async with httpx.AsyncClient(
-        base_url=API_BASE_URL, timeout=TIMEOUT_SECONDS, transport=TRANSPORT
-    ) as client:
-        response = await client.request(
-            method, path, json=json, params=_query(params), headers=headers
-        )
+    if text is not None:
+        headers["Content-Type"] = "application/yaml"
+    try:
+        async with httpx.AsyncClient(
+            base_url=API_BASE_URL, timeout=TIMEOUT_SECONDS, transport=TRANSPORT
+        ) as client:
+            response = await client.request(
+                method,
+                path,
+                json=json,
+                content=text,
+                params=_query(params),
+                headers=headers,
+            )
+    except httpx.TransportError as exc:
+        raise ApiError(503, UNREACHABLE_MESSAGE) from exc
     _raise_for_status(response)
     return response
 
@@ -101,25 +120,29 @@ def _raise_for_status(response: httpx.Response) -> None:
     )
 
 
-# --- Authentication ----------------------------------------------------------
-async def register(email: str, password: str) -> dict:
-    return await _request(
-        "POST", "/api/auth/register", json={"email": email, "password": password}
-    )
+async def download_execution_sample_csv(
+    token: str, execution_id: str
+) -> tuple[str, str]:
+    """Return a finished run's Sample CSV (at most 800 rows): name and text.
 
-
-async def login(email: str, password: str) -> dict:
-    return await _request(
-        "POST", "/api/auth/login", json={"email": email, "password": password}
-    )
-
-
-async def download_execution_csv(token: str, execution_id: str) -> str:
-    """Return a finished run's dataset CSV as text."""
+    The name is the API's (`Content-Disposition`), with the run's start
+    time in it; `<execution_id>-sample.csv` if the API sends none.
+    """
     response = await _send(
-        "GET", f"/api/crawler-executions/{execution_id}/dataset.csv", token=token
+        "GET",
+        f"/api/crawler-executions/{execution_id}/dataset-sample.csv",
+        token=token,
     )
-    return response.text
+    filename = _attachment_filename(response) or f"{execution_id}-sample.csv"
+    return filename, response.text
+
+
+def _attachment_filename(response: httpx.Response) -> str | None:
+    """Return the file name a `Content-Disposition` header gives, if any."""
+    match = re.search(
+        r'filename="([^"]+)"', response.headers.get("content-disposition", "")
+    )
+    return match.group(1) if match else None
 
 
 # --- Crawler Context ---------------------------------------------------------
@@ -149,6 +172,23 @@ async def delete_context_value(token: str, crawler_id: str, key: str) -> None:
 async def list_executions(token: str, params: dict) -> dict:
     """Return one page of every crawler's runs; `None` params are dropped."""
     return await _request("GET", "/api/crawler-executions", token=token, params=params)
+
+
+async def get_execution_history(token: str, crawler_id: str, days: int = 30) -> dict:
+    """Return a crawler's runs of the last `days` days, with outcome counts."""
+    return await _request(
+        "GET",
+        f"/api/crawlers/{crawler_id}/execution-history",
+        token=token,
+        params={"days": days},
+    )
+
+
+async def get_execution_summary(token: str, crawler_id: str) -> dict:
+    """Return a crawler's streak, success rate, and average duration."""
+    return await _request(
+        "GET", f"/api/crawlers/{crawler_id}/execution-summary", token=token
+    )
 
 
 # --- Crawlers ----------------------------------------------------------------
@@ -223,9 +263,58 @@ async def delete_version(token: str, version_id: str) -> None:
     await _request("DELETE", f"/api/crawler-versions/{version_id}", token=token)
 
 
+async def export_instructions(token: str, version_id: str) -> str:
+    """Return a version's instructions as YAML text."""
+    response = await _send(
+        "GET", f"/api/crawler-versions/{version_id}/instructions", token=token
+    )
+    return response.text
+
+
+async def import_instructions(token: str, version_id: str, text: str) -> dict:
+    """Replace a version's instructions; return the version it landed on.
+
+    A published version lands on a new draft.
+    """
+    response = await _send(
+        "PUT",
+        f"/api/crawler-versions/{version_id}/instructions",
+        token=token,
+        text=text,
+    )
+    return response.json()
+
+
 async def create_test_execution(token: str, version_id: str) -> dict:
     return await _request(
         "POST", f"/api/crawler-versions/{version_id}/test-executions", token=token
+    )
+
+
+async def get_execution(token: str, execution_id: str) -> dict:
+    return await _request("GET", f"/api/crawler-executions/{execution_id}", token=token)
+
+
+# --- Instruction Generations -------------------------------------------------
+async def create_instruction_generation(
+    token: str, version_id: str, prompt: str
+) -> dict:
+    """Ask the AI agents to write a version's instructions; return the job.
+
+    The API answers 202 with the pending generation, to poll.
+    """
+    return await _request(
+        "POST",
+        f"/api/crawler-versions/{version_id}/instruction-generations",
+        token=token,
+        json={"prompt": prompt},
+    )
+
+
+async def get_instruction_generation(token: str, generation_id: str) -> dict:
+    """Return a generation, without its recording, for polling."""
+    return await _request(
+        "GET", f"/api/instruction-generations/{generation_id}", token=token
     )
 
 
@@ -356,3 +445,30 @@ async def update_rate_limit(token: str, rate_limit_id: str, payload: dict) -> di
 
 async def delete_rate_limit(token: str, rate_limit_id: str) -> None:
     await _request("DELETE", f"/api/rate-limits/{rate_limit_id}", token=token)
+
+
+# --- Users (admin only) ------------------------------------------------------
+USERS_PAGE_SIZE = 50
+
+
+async def list_users(token: str, offset: int) -> dict:
+    """Return one page of users, ordered by email."""
+    return await _request(
+        "GET",
+        "/api/users",
+        token=token,
+        params={"limit": USERS_PAGE_SIZE, "offset": offset},
+    )
+
+
+async def create_user(token: str, payload: dict) -> dict:
+    return await _request("POST", "/api/users", token=token, json=payload)
+
+
+async def update_user(token: str, user_id: str, payload: dict) -> dict:
+    return await _request("PATCH", f"/api/users/{user_id}", token=token, json=payload)
+
+
+async def disable_user(token: str, user_id: str) -> None:
+    """Disable the account; the API never deletes one."""
+    await _request("DELETE", f"/api/users/{user_id}", token=token)

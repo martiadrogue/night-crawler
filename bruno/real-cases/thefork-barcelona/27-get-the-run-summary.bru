@@ -1,0 +1,26 @@
+meta {
+  name: Get the run summary
+  type: http
+  seq: 27
+}
+
+get {
+  url: {{baseUrl}}/api/crawlers/{{theforkCrawlerId}}/execution-summary
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns the crawler's history in numbers", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property("consecutive_successful_runs");
+    expect(res.body).to.have.property("avg_completion_seconds");
+  });
+}
+
+docs {
+  Streak, success rate over the last 30 ended runs, average duration of
+  the last 30 successful runs, and when the last one finished. A run is
+  successful when it `succeeded` and its rows were `parsed`. Right after
+  request 25 the run is still pending, so everything is 0 or `null`.
+}

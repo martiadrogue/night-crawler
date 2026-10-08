@@ -5,9 +5,6 @@ from datetime import datetime
 import httpx
 import pytest
 from night_crawler.core.di import REPOSITORY_FACTORIES
-from night_crawler.domain.ports.auth_attempt_limiter import (
-    AbstractAuthAttemptLimiter,
-)
 from night_crawler.domain.ports.repository_sets import (
     AbstractReadRepositories,
     AbstractWriteRepositories,
@@ -16,10 +13,12 @@ from night_crawler.infrastructure.db.read_repositories import MongoReadRepositor
 from night_crawler.infrastructure.db.write_repositories import MongoWriteRepositories
 from night_crawler.main import app
 from night_crawler.presentation.api.dependencies import (
-    get_auth_attempt_limiter,
     get_current_user,
+    get_dataset_export_storage,
     get_execution_dispatcher,
     get_read_repositories,
+    get_token_verifier,
+    get_user_directory,
     get_write_repositories,
 )
 from night_crawler.schemas.auth import UserOut
@@ -39,22 +38,6 @@ MEMBER = UserOut(
     created_at=datetime(2026, 1, 1),
 )
 USERS = {"admin": ADMIN, "member": MEMBER}
-
-
-class RecordingAuthAttemptLimiter(AbstractAuthAttemptLimiter):
-    """Keep auth attempt counters isolated to one test client."""
-
-    def __init__(self) -> None:
-        self.attempts: dict[str, int] = {}
-
-    async def is_limited(self, key: str, max_attempts: int) -> bool:
-        return self.attempts.get(key, 0) >= max_attempts
-
-    async def record_attempt(self, key: str, window_seconds: int) -> None:
-        self.attempts[key] = self.attempts.get(key, 0) + 1
-
-    async def clear(self, key: str) -> None:
-        self.attempts.pop(key, None)
 
 
 @asynccontextmanager
@@ -79,10 +62,8 @@ async def _serve_app(
             yield write_repositories
 
     previous_overrides = dict(app.dependency_overrides)
-    auth_attempt_limiter = RecordingAuthAttemptLimiter()
     app.dependency_overrides[get_read_repositories] = _get_read_repositories
     app.dependency_overrides[get_write_repositories] = _get_write_repositories
-    app.dependency_overrides[get_auth_attempt_limiter] = lambda: auth_attempt_limiter
     try:
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
@@ -101,12 +82,15 @@ def serve_app():
 
 @pytest.fixture
 async def client(
-    mongo_database, execution_dispatcher
+    mongo_database, execution_dispatcher, export_storage, token_verifier, user_directory
 ) -> AsyncGenerator[httpx.AsyncClient, None]:
     async with _serve_app(*mongo_database) as http_client:
+        app.dependency_overrides[get_token_verifier] = lambda: token_verifier
+        app.dependency_overrides[get_user_directory] = lambda: user_directory
         app.dependency_overrides[get_execution_dispatcher] = lambda: (
             execution_dispatcher
         )
+        app.dependency_overrides[get_dataset_export_storage] = lambda: export_storage
         yield http_client
 
 

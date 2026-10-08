@@ -1,0 +1,32 @@
+meta {
+  name: Create the execution
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/api/crawlers/{{barcelonaComedyClubCrawlerId}}/executions
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "context": {}
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("barcelonaComedyClubExecutionId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Creates a `pending` run with nothing seeded: one request reads the next
+  six months of dates.
+}

@@ -1,7 +1,7 @@
 import reflex as rx
 
 from night_crawler import api_client, forms
-from night_crawler.state.auth_state import AuthState
+from night_crawler.state.auth_state import get_session
 
 DEFAULT_FIELDS_TEXT = "item_id, name"
 
@@ -38,7 +38,7 @@ class CrawlersState(rx.State):
 
     @rx.event
     async def load_crawlers(self):
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         if not auth.is_authenticated:
             yield rx.redirect("/login")
             return
@@ -124,7 +124,7 @@ class CrawlersState(rx.State):
         if error:
             self.form_error = error
             return
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             if self.editing_crawler_id:
                 await api_client.update_crawler(
@@ -145,7 +145,7 @@ class CrawlersState(rx.State):
         When every version is archived, open a new draft; the API clones
         it from the latest archived version, or starts it empty.
         """
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             version_id = (
                 forms.editable_version_id(
@@ -171,7 +171,7 @@ class CrawlersState(rx.State):
     @rx.event
     async def confirm_delete(self):
         crawler_id, self.deleting_crawler_id = self.deleting_crawler_id, ""
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             await api_client.delete_crawler(auth.token, crawler_id)
         except api_client.ApiError as exc:
@@ -210,7 +210,7 @@ class CrawlersState(rx.State):
             self.context_error = "Name the key, e.g. parish[] or google_api_key."
             return
         value = forms.parse_context_value(form_data.get("value", ""))
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             await api_client.set_context_value(
                 auth.token, self.context_crawler_id, key, value
@@ -223,7 +223,7 @@ class CrawlersState(rx.State):
 
     @rx.event
     async def delete_context_key(self, key: str):
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             await api_client.delete_context_value(
                 auth.token, self.context_crawler_id, key
@@ -236,14 +236,16 @@ class CrawlersState(rx.State):
 
     async def _load_context(self) -> None:
         """Fetch the Context; a crawler that never ran has none yet."""
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             context = await api_client.get_context(auth.token, self.context_crawler_id)
         except api_client.ApiError as exc:
             self.context_rows = []
             self.context_error = exc.message
             return
-        self.context_rows = forms.context_rows(context["values"])
+        self.context_rows = forms.context_rows(
+            context["values"], context.get("harvested_keys", [])
+        )
         self.context_error = ""
 
     def _reset_context_form(self) -> None:

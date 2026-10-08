@@ -1,0 +1,30 @@
+meta {
+  name: Add field timezone
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{comedyClubhouseEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "timezone",
+    "type": "value",
+    "title": "timezone",
+    "parent_selector_id": "{{comedyClubhouseIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The start and end dates' timezone (`Europe/Madrid`).
+}

@@ -1,0 +1,32 @@
+meta {
+  name: Get the execution history
+  type: http
+  seq: 28
+}
+
+get {
+  url: {{baseUrl}}/api/crawlers/{{theforkCrawlerId}}/execution-history?days=30
+  body: none
+  auth: inherit
+}
+
+params:query {
+  days: 30
+}
+
+tests {
+  test("returns the window's runs and counts", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.runs).to.be.an("array");
+    expect(res.body.counts).to.have.property("all");
+    expect(res.body).to.have.property("is_truncated");
+  });
+}
+
+docs {
+  Every run of the last 30 days (`days`: 1-90), newest first, up to 1,000,
+  each with its `outcome` (success, verification_failed, failed,
+  in_progress) and `validation.completeness_rate`. `counts` covers the whole
+  window, even past the cap (`is_truncated`). Test runs are left out unless
+  `queue=testing`. What the Execution history page's chart and table read.
+}

@@ -30,6 +30,23 @@ class RenderedRequest:
 
 
 @dataclass(frozen=True)
+class InstructionRequest:
+    """What an Instruction Generation asks for.
+
+    Attributes:
+        prompt: What the crawler should get, in plain words.
+        crawler_fields: The dataset fields each row must carry; the
+            selectors harvesting them are titled after them.
+        current_instructions_yaml: The targeted version's instructions
+            file, a starting point that may be kept or replaced.
+    """
+
+    prompt: str
+    crawler_fields: tuple[str, ...]
+    current_instructions_yaml: str
+
+
+@dataclass(frozen=True)
 class SessionState:
     """What one request shares with the next one to the same host.
 
@@ -98,6 +115,9 @@ class DatasetValidation:
         empty_columns: The Crawler's fields with no value in any row.
         is_valid: No required drop, no mismatch, no empty column;
             duplicates alone don't make a dataset invalid.
+        completeness_rate: Share of filled cells in the kept rows, over
+            rows × the Crawler's fields, 0 to 1; `None` with no kept
+            row. Informative only: it never decides `is_valid`.
     """
 
     rows_checked: int = 0
@@ -107,6 +127,7 @@ class DatasetValidation:
     pattern_mismatches: dict[str, int] = field(default_factory=dict)
     empty_columns: tuple[str, ...] = ()
     is_valid: bool = True
+    completeness_rate: float | None = None
 
 
 @dataclass(frozen=True)
@@ -136,7 +157,8 @@ class RateLimitTarget:
     """One rate-limit bucket a request waits on.
 
     Attributes:
-        key: `domain:<host>` (the exact host) or `proxy:<id>`.
+        key: `domain:<host>` (the exact host), `proxy:<id>`, or
+            `llm:<model>:minute|day|tokens` (a hosted model's quota).
         rule: What that bucket enforces.
     """
 

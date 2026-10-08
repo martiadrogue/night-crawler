@@ -15,22 +15,10 @@ from night_crawler.domain.model.constants import (
     DEFAULT_SELECTOR_SOURCE,
 )
 from night_crawler.domain.model.value_objects import DatasetField
-
-
-@dataclass
-class User:
-    """A registered account.
-
-    `hashed_password` never leaves the domain and auth service; it is
-    not mapped onto any API schema. `role` is `admin`, `user`, or
-    `viewer`.
-    """
-
-    id: str
-    email: str
-    hashed_password: str
-    created_at: datetime
-    role: str = "user"
+from night_crawler.domain.ports.browser_agent_recorder import (
+    AgentRecording,
+    FilteredRequestSummary,
+)
 
 
 @dataclass
@@ -286,6 +274,61 @@ class CrawlerExecution:
 
 
 @dataclass
+class InstructionGeneration:
+    """A request for an AI agent to write a version's instructions.
+
+    Unlike a Crawler Execution it runs no instructions: it produces
+    them, imports them like an instructions file, then starts a test
+    run of the result.
+
+    Attributes:
+        crawler_id: The Crawler whose instructions are written.
+        crawler_version_id: The version it targets; `None` once that
+            version is deleted.
+        user_id: Who asked; the worker acts as this user.
+        prompt: What the crawler should get, in plain words.
+        status: `pending`, `running`, `succeeded`, or `failed`.
+        created_at: Creation time (naive UTC).
+        updated_at: Last change (naive UTC).
+        error: Why it failed, when it did.
+        result_version_id: The draft the instructions landed on; `None`
+            until imported, or once that version is deleted.
+        test_execution_id: The test run of that draft.
+        instructions_yaml: The synthesized file (size-capped), kept
+            even when it failed to import.
+        recording: What the browser agent did, cut to the stored size
+            cap; kept even when the generation failed.
+        filtered_requests: The recorded requests that led to the data,
+            and why each was kept (size-capped).
+        required_context_keys: Placeholders the file uses for redacted
+            credentials; only the Crawler's Context can fill them.
+        warnings: What to do before the result can run (e.g. a
+            required key missing from the Context).
+        started_at: When a worker picked it up.
+        finished_at: When it reached a terminal status.
+    """
+
+    id: str
+    crawler_id: str
+    crawler_version_id: str | None
+    user_id: str
+    prompt: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    error: str | None = None
+    result_version_id: str | None = None
+    test_execution_id: str | None = None
+    instructions_yaml: str | None = None
+    recording: AgentRecording | None = None
+    filtered_requests: tuple[FilteredRequestSummary, ...] = ()
+    required_context_keys: tuple[str, ...] = ()
+    warnings: tuple[str, ...] = ()
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+
+@dataclass
 class CrawlerExecutionContext:
     """One Context key/value of a Crawler Execution.
 
@@ -331,11 +374,12 @@ class CrawlerExecutionDataset:
     Attributes:
         crawler_execution_id: The run; at most one dataset per run.
         fields: The CSV columns, in order.
-        csv_content: The whole CSV, header included.
         row_count: Rows, header excluded.
         created_at: Creation time (naive UTC).
         updated_at: Last change (naive UTC).
-        file_path: The exported copy, or `None` without export storage.
+        file_path: Where the CSV file is: the CSV itself is never in
+            MongoDB. `None` when exporting it failed, which fails the
+            run.
         import_status: `pending`, `importing`, `imported`, or `failed`.
         imported_at: When the import finished.
         import_error: Why the last import failed.
@@ -347,7 +391,6 @@ class CrawlerExecutionDataset:
     id: str
     crawler_execution_id: str
     fields: list[str]
-    csv_content: str
     row_count: int
     created_at: datetime
     updated_at: datetime

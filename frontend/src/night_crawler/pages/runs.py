@@ -95,12 +95,19 @@ def _row(run: rx.Var) -> rx.Component:
         rx.table.cell(rx.text(run["ran_text"], size="1")),
         rx.table.cell(rx.text(run["requests_text"], size="1")),
         rx.table.cell(
-            rx.button(
-                "CSV",
-                size="1",
-                variant="soft",
-                disabled=~run["has_csv"].to(bool),
-                on_click=RunsState.download_csv(run["id"]),
+            rx.tooltip(
+                rx.button(
+                    "Sample CSV",
+                    size="1",
+                    variant="soft",
+                    white_space="nowrap",
+                    disabled=~run["has_csv"].to(bool),
+                    on_click=RunsState.download_sample_csv(run["id"]),
+                ),
+                content=(
+                    "Up to 800 rows spread evenly over the whole run, "
+                    "for a data quality check"
+                ),
             )
         ),
     )

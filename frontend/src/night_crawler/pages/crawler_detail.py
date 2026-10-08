@@ -89,6 +89,10 @@ def crawler_detail() -> rx.Component:
             rx.hstack(
                 rx.heading(crawler["title"].to(str), size="7"),
                 rx.spacer(),
+                rx.link(
+                    rx.button("Execution history", variant="soft"),
+                    href="/crawlers/" + CrawlerDetailState.crawler_id + "/history",
+                ),
                 rx.button(
                     "New draft",
                     on_click=CrawlerDetailState.create_draft,

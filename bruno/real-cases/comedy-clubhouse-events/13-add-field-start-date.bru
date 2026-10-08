@@ -1,0 +1,30 @@
+meta {
+  name: Add field start_date
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{comedyClubhouseEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "start_date",
+    "type": "value",
+    "title": "start_date",
+    "parent_selector_id": "{{comedyClubhouseIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Local start time, `YYYY-MM-DD HH:MM:SS`.
+}

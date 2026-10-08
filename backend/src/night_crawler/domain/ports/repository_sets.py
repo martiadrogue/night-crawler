@@ -17,20 +17,19 @@ from night_crawler.domain.ports.repositories import (
     AbstractCrawlerRepository,
     AbstractCrawlerVersionRepository,
     AbstractDatasetRepository,
+    AbstractInstructionGenerationRepository,
     AbstractMessageAidProxyRepository,
     AbstractMessageAidRateLimitRepository,
     AbstractMessageAidRepository,
     AbstractMessageSelectorRepository,
     AbstractMessageTemplateRepository,
     AbstractSourceRepository,
-    AbstractUserRepository,
 )
 
 
 class AbstractRepositories(ABC):
     """Every repository a use case can reach, one per entity."""
 
-    users: AbstractUserRepository
     sources: AbstractSourceRepository
     datasets: AbstractDatasetRepository
     crawlers: AbstractCrawlerRepository
@@ -43,6 +42,7 @@ class AbstractRepositories(ABC):
     crawler_executions: AbstractCrawlerExecutionRepository
     crawler_execution_contexts: AbstractCrawlerExecutionContextRepository
     crawler_execution_datasets: AbstractCrawlerExecutionDatasetRepository
+    instruction_generations: AbstractInstructionGenerationRepository
 
 
 class AbstractReadRepositories(AbstractRepositories):

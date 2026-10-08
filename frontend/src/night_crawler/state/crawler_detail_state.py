@@ -1,7 +1,7 @@
 import reflex as rx
 
 from night_crawler import api_client, forms
-from night_crawler.state.auth_state import AuthState
+from night_crawler.state.auth_state import get_session
 
 
 class CrawlerDetailState(rx.State):
@@ -23,7 +23,7 @@ class CrawlerDetailState(rx.State):
 
     @rx.event
     async def load_crawler(self):
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         if not auth.is_authenticated:
             return rx.redirect("/login")
         try:
@@ -48,7 +48,7 @@ class CrawlerDetailState(rx.State):
 
     @rx.event
     async def create_draft(self):
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             draft = await api_client.create_draft(auth.token, self.crawler_id)
         except api_client.ApiError as exc:
@@ -58,7 +58,7 @@ class CrawlerDetailState(rx.State):
 
     @rx.event
     async def publish(self, version_id: str):
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         await self._call(api_client.publish_version, auth.token, version_id)
         return CrawlerDetailState.load_crawler
 
@@ -82,7 +82,7 @@ class CrawlerDetailState(rx.State):
     @rx.event
     async def confirm_delete(self):
         version_id, self.deleting_version_id = self.deleting_version_id, ""
-        auth = await self.get_state(AuthState)
+        auth = await get_session(self)
         try:
             await api_client.delete_version(auth.token, version_id)
         except api_client.ApiError as exc:

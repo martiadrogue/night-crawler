@@ -1,0 +1,45 @@
+meta {
+  name: Configure the events template
+  type: http
+  seq: 8
+}
+
+patch {
+  url: {{baseUrl}}/api/templates/{{barcelonaComedyClubEventsTemplateId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "action": "POST",
+    "url": "https://barcelonacomedyclub.com/wp-json/eventon/v1/data?action=init",
+    "body": "action=eventon_init_load&cals[c1][sc][calendar_type]=default&cals[c1][sc][number_of_months]=6&cals[c1][sc][event_past_future]=future&cals[c1][sc][lang]=L1",
+    "headers": {
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "Accept": "application/json"
+    }
+  }
+}
+
+tests {
+  test("returns 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}
+
+docs {
+  The homepage's "#entradas" section is an EventON weekly calendar that
+  loads its events after the page, so the HTML has none. This template
+  asks EventON for them directly, the way the calendar's own script does
+  (`init_load_cal_data`), through its REST route: a form POST, no login
+  and no nonce, answered as `application/json` (the `admin-ajax.php`
+  alternative answers JSON labelled `text/html`, which the engine would
+  parse as a page).
+
+  The form asks for a list calendar instead of the site's weekly one:
+  `calendar_type=default`, `number_of_months=6` from the current month,
+  `event_past_future=future`. That is every upcoming date over six months
+  (82 today, 7 shows), with no month or year fixed, so scheduled runs
+  always start at the current month.
+}

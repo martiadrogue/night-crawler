@@ -1,0 +1,32 @@
+meta {
+  name: Add the first page listing_page selector
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{atrapaloFirstPageTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(substring-after(@href, '/es_ajax/'))",
+    "type": "value",
+    "title": "listing_page",
+    "parent_selector_id": "{{atrapaloFirstPagePagesIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  A link's page part, e.g. `p-2/`, into `listing_page[]`. As this run's
+  first harvest of it, it replaces what the previous run left, so the
+  next template always pages from a fresh list.
+}

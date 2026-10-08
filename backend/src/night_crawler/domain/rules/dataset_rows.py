@@ -6,16 +6,21 @@ import json
 from typing import Any
 
 from night_crawler.domain.model.value_objects import Harvest
+from night_crawler.domain.rules.dataset_validation import is_empty
 
 
 def project_rows(harvest: Harvest, fields: list[str]) -> list[dict[str, Any]]:
     """Return one response's dataset rows, keeping only `fields`.
 
     Call it only for a template that feeds the dataset. Every harvest
-    row is one dataset row; a field not harvested is `None`. Rows are
-    validated, and some dropped, once the run ends (DOMAIN_MODEL §5.4).
+    row with at least one of `fields` is one dataset row; a field not
+    harvested is `None`. A row with none of them carries no data (a
+    page with nothing to harvest, e.g. a show with no dates) and is
+    left out. Rows are validated, and some dropped, once the run ends
+    (DOMAIN_MODEL §5.4).
     """
-    return [{field: row.get(field) for field in fields} for row in harvest.rows]
+    projected = [{field: row.get(field) for field in fields} for row in harvest.rows]
+    return [row for row in projected if any(not is_empty(v) for v in row.values())]
 
 
 def build_csv(fields: list[str], rows: list[dict[str, Any]]) -> str:

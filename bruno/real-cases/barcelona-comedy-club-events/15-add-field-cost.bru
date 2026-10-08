@@ -1,0 +1,32 @@
+meta {
+  name: Add field cost
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{barcelonaComedyClubEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "join(' ', [event_pmv._sale_price[0], '€'])",
+    "type": "value",
+    "title": "cost",
+    "parent_selector_id": "{{barcelonaComedyClubIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The online ticket price, as the site stores it (`10.24 €`, sometimes
+  `12,24 €`). It stays text: half the prices use a decimal comma, which
+  JMESPath can't read as a number.
+}

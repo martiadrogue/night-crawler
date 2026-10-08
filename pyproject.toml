@@ -17,27 +17,45 @@ classifiers = [
 ]
 
 dependencies = [
-    "fastapi>=0.136.0",
+    "fastapi>=0.142.0",  # `fastapi.telemetry` (core/telemetry.py)
     "pydantic-settings>=2.14.2",
     "email-validator>=2.2.0",
     "httpx>=0.28.1",
     "redis >=5.2.0",
     "limits>=4.1",
     "uvicorn[standard]>=0.45.0",
+    # The production server (night-infra): Gunicorn running Uvicorn
+    # workers.
+    "gunicorn>=23.0.0",
+    "uvicorn-worker>=0.3.0",
     "celery[rabbitmq]>=5.6.0",
     "croniter>=6.0.0",
     # PyMongo's native asyncio API (`AsyncMongoClient`) replaces Motor.
     "pymongo>=4.13",
     "amqp>=5.2.0",
-    "pwdlib[bcrypt]>=0.2.1",
     "pyjwt>=2.8.0",
     "lxml>=5.0",
     # CSS selector paths (`lxml.cssselect`).
     "cssselect>=1.2",
     "jmespath>=1.0.1",
+    # Crawler instructions files (presentation/api/crawler_instructions.py).
+    "pyyaml>=6.0",
     "playwright>=1.48.0",
     "patchright>=1.48.0",
+    # The browser agent of Instruction Generations, on Gemini
+    # (infrastructure/external/browser_use_agent_recorder.py). Pinned to
+    # a minor: its history and CDP APIs change between them.
+    "browser-use>=0.13.10,<0.14",
     "anyio>=4.12.1",
+    # Traces and metrics, pushed over OTLP (core/telemetry.py); the
+    # instrumentations are released in lockstep with the SDK. FastAPI
+    # traces itself (`fastapi.telemetry`), so it needs none.
+    "opentelemetry-sdk>=1.45.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.45.0",
+    "opentelemetry-instrumentation-celery>=0.66b0",
+    "opentelemetry-instrumentation-httpx>=0.66b0",
+    "opentelemetry-instrumentation-pymongo>=0.66b0",
+    "opentelemetry-instrumentation-redis>=0.66b0",
 ]
 
 [project.optional-dependencies]
@@ -55,6 +73,10 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["backend/src"]
+
+[tool.setuptools.package-data]
+# The instruction synthesis system prompt, read at runtime.
+"night_crawler.infrastructure.external" = ["prompts/*.md"]
 
 [tool.ruff]
 extend-exclude = ["frontend/.web"]

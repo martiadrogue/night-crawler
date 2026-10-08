@@ -1,0 +1,33 @@
+meta {
+  name: Add the results page listing_page selector
+  type: http
+  seq: 18
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{atrapaloResultsPageTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(substring-after(@href, '/es_ajax/'))",
+    "type": "value",
+    "title": "listing_page",
+    "parent_selector_id": "{{atrapaloResultsPagePagesIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  A link's page part, e.g. `p-2/`. Titled after this template's own
+  `{{listing_page}}`, so every new page runs once. This iterator and the
+  shows one cross-join, repeating values in the Context; each distinct
+  value still runs once.
+}

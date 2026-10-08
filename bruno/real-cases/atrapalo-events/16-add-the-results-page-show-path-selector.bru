@@ -1,0 +1,32 @@
+meta {
+  name: Add the results page show_path selector
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{atrapaloResultsPageTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(string(@data-url))",
+    "type": "value",
+    "title": "show_path",
+    "parent_selector_id": "{{atrapaloResultsPageCardsIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The card's `data-url`, e.g. `/entradas/lo-nunca-visto-berto-romero-en-barcelona_e4948781/`.
+  Not a Dataset field, so it collects in the Context as `show_path[]`,
+  which the show template fans out over: one request per distinct show.
+}

@@ -1,0 +1,30 @@
+meta {
+  name: Add field image_url
+  type: http
+  seq: 23
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{tintaRojaShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(string(.//img/@src))",
+    "type": "value",
+    "title": "image_url",
+    "parent_selector_id": "{{tintaRojaDatesIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The date's poster.
+}

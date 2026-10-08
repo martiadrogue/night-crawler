@@ -20,6 +20,7 @@ from night_crawler.services import (
     crawler_execution_service,
     crawler_version_service,
     dataset_service,
+    instruction_generation_service,
     source_service,
 )
 
@@ -186,14 +187,6 @@ async def delete_crawler(
     logger.info("Crawler deleted: id=%s", crawler.id)
 
 
-async def delete_crawlers_of_user(
-    write_repositories: AbstractWriteRepositories, user_id: str
-) -> None:
-    """Stage deleting every Crawler a user created; caller commits."""
-    for crawler in await write_repositories.crawlers.get_all_by_user_id(user_id):
-        await _delete_crawler_tree(write_repositories, crawler.id)
-
-
 async def _delete_crawler_tree(
     write_repositories: AbstractWriteRepositories, crawler_id: str
 ) -> None:
@@ -202,6 +195,9 @@ async def _delete_crawler_tree(
     Executions go first: a version that has run can't be deleted while
     they reference it (DM-10).
     """
+    await instruction_generation_service.delete_generations_of_crawler(
+        write_repositories, crawler_id
+    )
     await crawler_execution_service.delete_executions_of_crawler(
         write_repositories, crawler_id
     )

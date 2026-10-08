@@ -1,0 +1,40 @@
+meta {
+  name: Configure the first page template
+  type: http
+  seq: 8
+}
+
+patch {
+  url: {{baseUrl}}/api/templates/{{atrapaloFirstPageTemplateId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "action": "GET",
+    "url": "https://www.atrapalo.com/entradas/barcelona/monologos/es_ajax/",
+    "headers": {
+      "Accept-Language": "es-ES,es;q=0.9"
+    }
+  }
+}
+
+tests {
+  test("returns 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}
+
+docs {
+  Page 1 of the stand-up results (40 shows a page) through Atrápalo's
+  results fragment, `/es_ajax/` (where `/es_ajax/p-1/` redirects). The
+  whole site answers non-browser clients with a JavaScript "Client
+  Challenge", so every template runs in a stealth browser (Patchright),
+  which reads a page only once it stops reloading itself (ARCHITECTURE,
+  browser engines).
+
+  A fixed URL on purpose: it collects page 1's shows and its pagination
+  links fresh on every run. A self-feeding list would start from what the
+  previous run left (`p-2/` …) and skip page 1.
+}

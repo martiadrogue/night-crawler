@@ -1,0 +1,30 @@
+meta {
+  name: Add field venue
+  type: http
+  seq: 27
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{atrapaloShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "location.name",
+    "type": "value",
+    "title": "venue",
+    "parent_selector_id": "{{atrapaloEventsIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The venue's name, e.g. `Teatre Coliseum`.
+}

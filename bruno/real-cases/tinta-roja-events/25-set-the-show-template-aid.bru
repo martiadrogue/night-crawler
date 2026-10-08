@@ -1,0 +1,38 @@
+meta {
+  name: Set the show template aid
+  type: http
+  seq: 25
+}
+
+put {
+  url: {{baseUrl}}/api/templates/{{tintaRojaShowTemplateId}}/aid
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "render_mode": "none",
+    "ttl": 30,
+    "rate_limit_id": "{{tintaRojaRateLimitId}}",
+    "retry_codes": [
+      "429",
+      "500",
+      "502",
+      "503",
+      "504",
+      "timeout"
+    ],
+    "max_retry_attempts": 3
+  }
+}
+
+tests {
+  test("returns 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}
+
+docs {
+  Plain HTML, so httpx (`none`).
+}

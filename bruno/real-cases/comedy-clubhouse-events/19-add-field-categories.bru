@@ -1,0 +1,30 @@
+meta {
+  name: Add field categories
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{comedyClubhouseEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "categories[].name",
+    "type": "value",
+    "title": "categories",
+    "parent_selector_id": "{{comedyClubhouseIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The event's categories, e.g. `["Stand-Up Comedy", "In English"]`.
+}

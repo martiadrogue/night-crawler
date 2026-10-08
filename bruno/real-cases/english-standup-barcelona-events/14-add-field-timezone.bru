@@ -1,0 +1,31 @@
+meta {
+  name: Add field timezone
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{englishStandupEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(string('Europe/Madrid'))",
+    "type": "value",
+    "title": "timezone",
+    "parent_selector_id": "{{englishStandupIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  A constant: the site's timezone (Squarespace's `website.timeZone`),
+  which its event times are shown in.
+}

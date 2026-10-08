@@ -1,0 +1,37 @@
+meta {
+  name: Add field start_date
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{barcelonaComedyClubEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "format_epoch(event_start_unix, '%Y-%m-%d %H:%M:%S', 'UTC')",
+    "type": "value",
+    "title": "start_date",
+    "parent_selector_id": "{{barcelonaComedyClubIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Local start, `YYYY-MM-DD HH:MM:SS`.
+
+  EventON's `event_start_unix` / `event_end_unix` hold the local wall
+  time written as if it were UTC, so formatting them in `'UTC'` gives
+  the Barcelona time shown on the site (it matches the time in every
+  title, e.g. `(20:30)`). `event_start_unix_utc` doesn't: it is hours off
+  for some events. `format_epoch` is the engine's JMESPath function for
+  Unix seconds (DOMAIN_MODEL §4.5).
+}

@@ -1,0 +1,40 @@
+meta {
+  name: Configure the events template
+  type: http
+  seq: 8
+}
+
+patch {
+  url: {{baseUrl}}/api/templates/{{englishStandupEventsTemplateId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "action": "GET",
+    "url": "https://www.englishstandupbarcelona.com/events",
+    "headers": {
+      "Accept": "text/html",
+      "Accept-Language": "en-GB,en;q=0.9"
+    }
+  }
+}
+
+tests {
+  test("returns 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}
+
+docs {
+  The homepage's "#upcoming" section shows the site's Squarespace event
+  collection, `/events`. That page lists the upcoming events first
+  (`article.eventlist-event--upcoming`, 3 today) and then the past ones,
+  all in plain HTML, so the template runs on httpx.
+
+  Its JSON form (`/events?format=json`) has the same events, but its dates
+  are epoch milliseconds, which JMESPath can't turn into the Dataset's
+  `YYYY-MM-DD HH:MM:SS`; the HTML has the date and the local time, and
+  XPath can.
+}

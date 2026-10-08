@@ -1,0 +1,92 @@
+{
+  "history": [
+    {
+      "model_output": {
+        "evaluation_previous_goal": "Start",
+        "memory": "",
+        "next_goal": "Open the shows listing",
+        "action": [{"navigate": {"url": "http://shows.example/start", "new_tab": false}}]
+      },
+      "result": [{"is_done": false, "extracted_content": "Navigated to http://shows.example/start"}],
+      "state": {"url": "about:blank", "title": "", "tabs": [], "interacted_element": [null]},
+      "metadata": {"step_start_time": 100.0, "step_end_time": 100.9, "step_number": 1}
+    },
+    {
+      "model_output": {
+        "evaluation_previous_goal": "Listing open",
+        "memory": "",
+        "next_goal": "Load more shows",
+        "action": [{"click": {"index": 12}}]
+      },
+      "result": [{"is_done": false, "extracted_content": "Clicked button"}],
+      "state": {
+        "url": "https://shows.example/search",
+        "title": "Shows",
+        "tabs": [],
+        "interacted_element": [
+          {
+            "node_id": 40,
+            "backend_node_id": 41,
+            "frame_id": null,
+            "node_type": 1,
+            "node_value": "",
+            "node_name": "BUTTON",
+            "attributes": {"class": "more"},
+            "bounds": null,
+            "x_path": "html/body/main/button[2]",
+            "element_hash": 123,
+            "stable_hash": null,
+            "ax_name": "More"
+          }
+        ]
+      },
+      "metadata": {"step_start_time": 101.0, "step_end_time": 101.9, "step_number": 2}
+    },
+    {
+      "model_output": {
+        "evaluation_previous_goal": "More loaded",
+        "memory": "",
+        "next_goal": "Search",
+        "action": [{"input": {"index": 7, "text": "comedy"}}]
+      },
+      "result": [{"is_done": false, "error": "Element index 7 not available"}],
+      "state": {
+        "url": "https://shows.example/search?page=2",
+        "title": "Shows",
+        "tabs": [],
+        "interacted_element": [null]
+      },
+      "metadata": {"step_start_time": 102.0, "step_end_time": 102.6, "step_number": 3}
+    },
+    {
+      "model_output": {
+        "evaluation_previous_goal": "Got the shows",
+        "memory": "",
+        "next_goal": "Answer",
+        "action": [
+          {
+            "done": {
+              "text": "[{\"item_id\": \"1\", \"name\": \"Comedy night\"}]",
+              "success": true,
+              "files_to_display": []
+            }
+          }
+        ]
+      },
+      "result": [
+        {
+          "is_done": true,
+          "success": true,
+          "extracted_content": "[{\"item_id\": \"1\", \"name\": \"Comedy night\"}]"
+        }
+      ],
+      "state": {
+        "url": "https://shows.example/search?page=2",
+        "title": "Shows",
+        "tabs": [],
+        "interacted_element": [null]
+      },
+      "metadata": {"step_start_time": 103.0, "step_end_time": 103.2, "step_number": 4}
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+apiVersion: 1
+
+providers:
+  - name: night-crawler
+    folder: Night Crawler
+    type: file
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards

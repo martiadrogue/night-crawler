@@ -1,0 +1,24 @@
+meta {
+  name: Create the English Stand Up Barcelona source
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/sources
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "English Stand Up Barcelona",
+    "url": "https://www.englishstandupbarcelona.com"
+  }
+}
+
+tests {
+  test("creates it, or it already exists", function () {
+    expect([201, 409]).to.include(res.status);
+  });
+}

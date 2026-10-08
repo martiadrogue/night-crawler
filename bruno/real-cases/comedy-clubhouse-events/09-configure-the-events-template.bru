@@ -1,0 +1,41 @@
+meta {
+  name: Configure the events template
+  type: http
+  seq: 9
+}
+
+patch {
+  url: {{baseUrl}}/api/templates/{{comedyClubhouseEventsTemplateId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "action": "GET",
+    "url": "https://thecomedyclubhouse.es/wp-json/tribe/events/v1/events?per_page=1000",
+    "headers": {
+      "Accept": "application/json",
+      "Accept-Language": "es-ES,es;q=0.9,en;q=0.8"
+    }
+  }
+}
+
+tests {
+  test("returns 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}
+
+docs {
+  The site's events page (`/all-events/`) is an Elementor widget showing
+  only the next 36 events. The site runs The Events Calendar, whose REST
+  API returns every upcoming event (today until two years ahead) as JSON:
+  487 events today.
+
+  `per_page=1000` returns them all in one response (about 3.7 MB, ~11 s),
+  so the crawler needs no pagination: an empty `page=` is refused (400),
+  which rules out a template that feeds its own page number. If the
+  calendar ever lists more than 1,000 upcoming events, the rest are cut
+  off: the response's `total` would then exceed the rows.
+}

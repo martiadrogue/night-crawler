@@ -45,10 +45,6 @@ class MongoCrawlerRepository(MongoRepository[Crawler], AbstractCrawlerRepository
         direction = ASCENDING if "asc" == order else DESCENDING
         return await self._find_many(query, [(sort_by, direction)], limit)
 
-    async def get_all_by_user_id(self, user_id: str) -> list[Crawler]:
-        """Return every Crawler a user created."""
-        return await self._find_many({"user_id": user_id})
-
     async def has_any_by_source_id(self, source_id: str) -> bool:
         """Tell whether any Crawler is linked to this Source."""
         return bool(await self._find_many({"source_id": source_id}, limit=1))

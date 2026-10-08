@@ -8,6 +8,12 @@ ENV PYTHONUNBUFFERED=1
 # Fixed, non-home location so the Chromium binary downloaded during the
 # image build is reachable regardless of which user launches it at runtime.
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+# Browser Use (the Instruction Generation agent) finds that same Chromium
+# through PLAYWRIGHT_BROWSERS_PATH. On import it would replace the app's
+# JSON logging and send usage data out: both off.
+ENV BROWSER_USE_SETUP_LOGGING=false
+ENV ANONYMIZED_TELEMETRY=false
+ENV BROWSER_USE_CLOUD_SYNC=false
 
 ARG USERNAME=nightcrawler-app
 ARG USER_UID=1000
@@ -21,7 +27,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /var/log/night_crawler && chown -R $USERNAME:$USERNAME /var/log/night_crawler
 RUN mkdir -p /var/lib/night_crawler/csv/raw /var/lib/night_crawler/csv/validated && chown -R $USERNAME:$USERNAME /var/lib/night_crawler/csv
 
 

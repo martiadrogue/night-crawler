@@ -1,0 +1,22 @@
+meta {
+  name: Find the Comedy Clubhouse source
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/sources
+  body: none
+  auth: inherit
+}
+
+script:post-response {
+  const source = res.body.find((item) => item.name === "The Comedy Clubhouse");
+  bru.setEnvVar("comedyClubhouseSourceId", source.id);
+}
+
+tests {
+  test("lists the Comedy Clubhouse source", function () {
+    expect(res.body.map((item) => item.name)).to.include("The Comedy Clubhouse");
+  });
+}

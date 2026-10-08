@@ -1,0 +1,30 @@
+meta {
+  name: Add field address
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{tintaRojaShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(string('C/ Creu dels Molers, 17, 08004 Barcelona'))",
+    "type": "value",
+    "title": "address",
+    "parent_selector_id": "{{tintaRojaDatesIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  A constant: the venue's address, as the site gives it in its footer.
+}

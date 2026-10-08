@@ -2,7 +2,7 @@
 COMPOSE_DEV = docker compose
 ARGS = $(filter-out $@,$(MAKECMDGOALS))
 
-.PHONY: build up down test test-frontend logs restart nuke
+.PHONY: build up up-observability identity-network down test test-frontend logs restart nuke
 
 # DEVELOPMENT COMMANDS (Default Stack)
 build:
@@ -15,14 +15,31 @@ up:
 	@# Created as you, not by Docker as root, so the containers (UID 1000)
 	@# can write dataset CSV exports into them.
 	@mkdir -p var/csv/raw var/csv/validated
+	@$(MAKE) --no-print-directory identity-network
 	$(COMPOSE_DEV) up -d
 	@echo "✨ Dev Services are up!"
 	@echo "FastAPI is running on http://localhost:8000"
 	@echo "RabbitMQ Management UI is running on http://localhost:15672"
+	@echo "Keycloak is running on http://localhost:8180"
+
+# External, so the Importer's stack can join it and `down` leaves it be.
+identity-network:
+	@docker network inspect identity >/dev/null 2>&1 || docker network create identity
+
+up-observability:
+	@echo "📊 Starting the stack with Prometheus, Loki, Alloy, and Grafana..."
+	@mkdir -p var/csv/raw var/csv/validated
+	@$(MAKE) --no-print-directory identity-network
+	@# The app's processes push traces and metrics to Alloy (OTLP);
+	@# a plain `make up` recreates them with telemetry off again.
+	OTEL_EXPORTER_OTLP_ENDPOINT=http://alloy:4318 $(COMPOSE_DEV) --profile observability up -d
+	@echo "Grafana is running on http://localhost:3030"
+	@echo "Prometheus is running on http://localhost:9090"
 
 down:
 	@echo "🛑 Stopping Development application stack..."
-	$(COMPOSE_DEV) down
+	@# The profile also stops the observability services, if running.
+	$(COMPOSE_DEV) --profile observability down
 
 lint:
 	$(COMPOSE_DEV) exec web ruff check .
@@ -33,7 +50,8 @@ format:
 
 test:
 	@echo "🧪 Running test suite inside the web container..."
-	$(COMPOSE_DEV) exec web pytest -v --cov=backend/src/night_crawler --cov-report=term-missing
+	@# Telemetry off, so tests never push spans to a running Alloy.
+	$(COMPOSE_DEV) exec -e OTEL_EXPORTER_OTLP_ENDPOINT= web pytest -v --cov=backend/src/night_crawler --cov-report=term-missing
 
 test-frontend:
 	@echo "🧪 Running frontend tests inside a one-off frontend container..."

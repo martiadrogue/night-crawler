@@ -13,6 +13,7 @@ from night_crawler.domain.model.constants import (
     CRAWLER_QUEUES,
     EXECUTION_QUEUES,
     EXECUTION_STATUSES,
+    INSTRUCTION_GENERATION_STATUSES,
     PARSING_STATUSES,
     RENDER_MODES,
     SELECTOR_SOURCES,
@@ -43,7 +44,6 @@ def _object(**properties: dict[str, Any]) -> dict[str, Any]:
 
 
 VALIDATORS: dict[str, dict[str, Any]] = {
-    "users": _object(role=_enum("admin", "user", "viewer")),
     "sources": _object(),
     "datasets": _object(),
     "crawlers": _object(queue=_enum(*CRAWLER_QUEUES)),
@@ -78,11 +78,11 @@ VALIDATORS: dict[str, dict[str, Any]] = {
         row_count=_integer(0),
         import_status=_enum("pending", "importing", "imported", "failed"),
     ),
+    "instruction_generations": _object(status=_enum(*INSTRUCTION_GENERATION_STATUSES)),
 }
 """Enum and range rules (DOMAIN_MODEL DM-5, DM-6), per collection."""
 
 INDEXES: dict[str, list[IndexModel]] = {
-    "users": [IndexModel("email", unique=True)],
     "sources": [IndexModel("name", unique=True)],
     "datasets": [IndexModel("name", unique=True)],
     "crawlers": [
@@ -137,6 +137,12 @@ INDEXES: dict[str, list[IndexModel]] = {
     ],
     "crawler_execution_datasets": [
         IndexModel("crawler_execution_id", unique=True),
+    ],
+    "instruction_generations": [
+        IndexModel([("crawler_id", ASCENDING), ("created_at", DESCENDING)]),
+        IndexModel("status"),
+        IndexModel("crawler_version_id"),
+        IndexModel("result_version_id"),
     ],
 }
 """Natural keys (DM-1, DM-3, DM-4, DM-7) and reference lookups."""

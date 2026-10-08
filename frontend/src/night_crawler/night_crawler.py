@@ -1,7 +1,9 @@
 import reflex as rx
 
 from night_crawler.pages import (  # noqa: F401 - registers the pages
+    auth_callback,
     crawler_detail,
+    crawler_history,
     crawlers,
     datasets,
     login,
@@ -9,6 +11,7 @@ from night_crawler.pages import (  # noqa: F401 - registers the pages
     register,
     runs,
     sources,
+    users,
     version_editor,
 )
 from night_crawler.state.auth_state import AuthState

@@ -24,6 +24,17 @@ def test_rows_missing_a_required_field_are_kept_for_validation():
     assert [{"item_id": "p1", "name": None}, {"item_id": "p2", "name": "Nou"}] == rows
 
 
+def test_a_row_with_none_of_the_fields_is_not_a_dataset_row():
+    harvest = Harvest(
+        rows=[{}, {"token": "t"}, {"item_id": "p1", "name": None}],
+        array_titles=frozenset(),
+    )
+
+    rows = project_rows(harvest, ["item_id", "name"])
+
+    assert [{"item_id": "p1", "name": None}] == rows
+
+
 def test_csv_follows_the_field_order_and_json_encodes_lists():
     csv_text = build_csv(
         ["item_id", "name", "categories"],

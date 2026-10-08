@@ -1,0 +1,47 @@
+meta {
+  name: Create crawler
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/crawlers
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "title": "Barcelona comedy events - English Stand Up Barcelona",
+    "source_id": "{{englishStandupSourceId}}",
+    "dataset_id": "{{eventsDatasetId}}",
+    "fields": [
+      "item_id",
+      "name",
+      "start_date",
+      "end_date",
+      "timezone",
+      "venue",
+      "address",
+      "categories",
+      "image_url",
+      "source_url"
+    ]
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("englishStandupCrawlerId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  10 of the `events` Dataset's 15 fields: the listing shows no
+  organizers, prices or all-day flag, so those stay out (a Crawler may
+  leave out any field that isn't required).
+}

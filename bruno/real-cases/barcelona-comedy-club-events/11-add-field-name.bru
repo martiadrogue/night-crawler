@@ -1,0 +1,31 @@
+meta {
+  name: Add field name
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{barcelonaComedyClubEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "event_title",
+    "type": "value",
+    "title": "name",
+    "parent_selector_id": "{{barcelonaComedyClubIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The title as the site writes it, time included (`Comedy Selection
+  🏆(22:00)`); some keep HTML entities (`&#8211;`).
+}

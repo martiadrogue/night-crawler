@@ -26,7 +26,7 @@ Dependencies MUST flow in one direction only:
 
 | Layer | Package | MAY Import | MUST NOT Import | Accepts | Returns |
 |---|---|---|---|---|---|
-| Presentation | `presentation/` | `services/`, `schemas/`, abstract `domain/` stubs, `core/di.py` composition functions | Concrete `infrastructure/` | External requests/messages | External responses/acknowledgements |
+| Presentation | `presentation/` | `services/`, `schemas/`, abstract `domain/` stubs, `core/di.py` composition functions, `core/logging.py` log context (`bind_execution_id`) | Concrete `infrastructure/` | External requests/messages | External responses/acknowledgements |
 | Application | `services/` | `domain/` abstractions, `schemas/` | Concrete `infrastructure/`, `presentation/` | Schemas | Schemas |
 | Domain | `domain/` | *Nothing else* | `services/`, `infrastructure/`, `presentation/`, `schemas/`, 3rd-party frameworks | Primitives/Entities | Primitives/Entities |
 | Infrastructure | `infrastructure/` | `domain/` | `schemas/`, `presentation/` | Domain entities | Domain entities |
@@ -64,15 +64,15 @@ Dependencies MUST flow in one direction only:
 - **R1.4.2:** Entities (with `id`) MAY use non-frozen `@dataclass`, but MUST NOT be mutated in place. Repositories' `save()` MUST construct and return a new instance.
 - **R1.4.3:** Mutable module-level state is prohibited outside `core/di.py` (which allows single long-lived client singletons for pooling). Per-instance state (e.g., `self._cache`) is allowed.
 - **R1.4.4:** Read config via an `@lru_cache` settings singleton. Direct `os.environ` reads in `services/` or `domain/` are prohibited.
-- **R1.4.5 Surrogate Key Pattern:** Every entity's primary key MUST be a surrogate key (`id: str`, UUIDv4) — never a natural/business key. Natural/business keys (e.g. `User.email`, a dataset record's `source` + `item_id`) MUST instead be enforced via a unique index on the collection. The UUID is stored as the document's `_id` (string) and mapped to `id` by the repository. See `docs/DOMAIN_MODEL.md` DM-1.
+- **R1.4.5 Surrogate Key Pattern:** Every entity's primary key MUST be a surrogate key (`id: str`, UUIDv4) — never a natural/business key. Natural/business keys (e.g. `Source.name`, a dataset record's `source` + `item_id`) MUST instead be enforced via a unique index on the collection. The UUID is stored as the document's `_id` (string) and mapped to `id` by the repository. See `docs/DOMAIN_MODEL.md` DM-1.
 
 ### 1.5 Data Access
 - **R1.5.1 Repository sets:** Services reach storage only through a repository set, never a single repository in isolation:
-  - `AbstractRepositories` — the shared port holding every repository attribute (`users`, `crawlers`, …).
+  - `AbstractRepositories` — the shared port holding every repository attribute (`crawlers`, `crawler_versions`, …).
   - `AbstractReadRepositories(AbstractRepositories)` — no transaction, no `commit()`/`rollback()`. Write methods (`save`, `save_all`, `delete`, `delete_*`, `clear_*`) MUST raise `ConfigurationException`.
   - `AbstractWriteRepositories(AbstractRepositories)` — one session and transaction across every repository (Unit of Work): `commit()` on success, `rollback()` on error.
 - **R1.5.2 Choosing a set:** A use case that only reads MUST take `read_repositories: AbstractReadRepositories`. A use case that writes MUST take `write_repositories: AbstractWriteRepositories` for the whole operation, including its reads. A read helper shared by both (e.g. `get_crawler`) MUST be typed `AbstractRepositories`.
-- **R1.5.3 Routes:** A route injects the set its service function takes (R1.5.2): `get_read_repositories` or `get_write_repositories`. Every `GET` route is read-only; a `POST` that only reads (e.g. login) also takes read repositories. Authentication (`get_current_user`) uses read repositories. A read helper shared by both kinds of use case is typed `AbstractRepositories` and its parameter is named `repositories`.
+- **R1.5.3 Routes:** A route injects the set its service function takes (R1.5.2): `get_read_repositories` or `get_write_repositories`. Every `GET` route is read-only; a `POST` that only reads also takes read repositories. Authentication (`get_current_user`) reads no repositories: it trusts the identity provider's access token (`docs/ARCHITECTURE.md`, Authentication). A read helper shared by both kinds of use case is typed `AbstractRepositories` and its parameter is named `repositories`.
 - **R1.5.4 Consistency:** Read repositories give no snapshot across queries; data may change between reads. A read that needs a consistent snapshot MUST use write repositories.
 
 ### 1.6 Error Handling
@@ -104,7 +104,7 @@ Dependencies MUST flow in one direction only:
 - **R2.2.4 DTO Suffixes:** `Base`, `Create`, `Update` (all fields optional), `Query` (or `QueryBy<Field>`), `Out`.
 - **R2.2.5 Middleware:** Custom request/response middleware classes MUST use `_middleware` suffix. Framework lifecycle hooks such as FastAPI `lifespan` are not request/response middleware and are not required to follow this suffix. Routes use `verb + resource`.
 - **R2.2.6 Tasks:** Background tasks MUST specify explicit `name="<package>.tasks.<func_name>"`.
-- **R2.2.7 Document Variables:** Map raw MongoDB documents to entities using prefix `db_` (e.g., `db_user`).
+- **R2.2.7 Document Variables:** Map raw MongoDB documents to entities using prefix `db_` (e.g., `db_crawler`).
 
 ### 2.3 Abbreviations
 - **R2.3.1:** Arbitrary word truncations are prohibited (e.g., use `user_repository`, not `usr_repo`).
@@ -116,7 +116,7 @@ Dependencies MUST flow in one direction only:
 - **R2.4.3 `schemas/`:** One file per resource containing all DTO suffixes.
 - **R2.4.4 `services/`:** One file per use case with `async def` functions.
 - **R2.4.5 `presentation/`:** Inbound adapters are grouped by transport: `api/` has one router file per resource, exporting `router = APIRouter()`; `worker/` contains Celery task entrypoints.
-- **R2.4.6 `core/`:** Settings, logging, and `di.py` only.
+- **R2.4.6 `core/`:** Settings, logging, telemetry, and `di.py` only.
 - **R2.4.7 Tests:** One-to-one mapping in `backend/tests/` path: `backend/tests/<path>/test_<module>.py`.
 
 ---

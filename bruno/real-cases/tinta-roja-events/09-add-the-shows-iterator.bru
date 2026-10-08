@@ -1,0 +1,34 @@
+meta {
+  name: Add the shows iterator
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{tintaRojaListingTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(//div[contains(@class, 'show-card-info')]/a[not(. = preceding::div[contains(@class, 'show-card-info')]/a)])",
+    "type": "iterator"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("tintaRojaShowsIteratorId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Each show's title link, once: a card is skipped when an earlier card
+  has the same title (XPath 1.0 compares a node with a node-set by text),
+  so a weekly show is fetched once, not once per date.
+}

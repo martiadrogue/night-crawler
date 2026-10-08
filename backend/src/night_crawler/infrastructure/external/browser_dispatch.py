@@ -4,6 +4,7 @@ Playwright and Patchright have the same API; each executor passes its
 own library in as a `BrowserEngine`.
 """
 
+import asyncio
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -29,6 +30,9 @@ from night_crawler.infrastructure.external.content_harvest import (
 )
 
 logger = logging.getLogger(__name__)
+
+_SETTLE_MS = 2000
+"""How long a page must stay on one document before it is read."""
 
 _USER_AGENT = "user-agent"
 
@@ -258,7 +262,35 @@ async def _response_content(
     content_type = response.headers.get("content-type", "")
     if "json" in content_type.lower():
         return await response.text(), content_type, None
+    await _settle(page, timeout_ms)
     return await page.content(), "text/html", _LivePage(page, timeout_ms)
+
+
+async def _settle(page: Any, timeout_ms: float) -> None:
+    """Wait until the page stops replacing itself, or time runs out.
+
+    A bot check or a client-side redirect loads a stand-in page that
+    navigates to the real one moments later, and reading it at once
+    would harvest the stand-in. The page is read once it has stayed on
+    one document for `_SETTLE_MS`.
+    """
+    navigations: list[Any] = []
+
+    def count_navigation(frame: Any) -> None:
+        if frame == page.main_frame:
+            navigations.append(frame)
+
+    deadline = asyncio.get_running_loop().time() + timeout_ms / 1000
+    page.on("framenavigated", count_navigation)
+    try:
+        while True:
+            seen = len(navigations)
+            await page.wait_for_load_state("load", timeout=timeout_ms)
+            await page.wait_for_timeout(_SETTLE_MS)
+            if seen == len(navigations) or asyncio.get_running_loop().time() > deadline:
+                return
+    finally:
+        page.remove_listener("framenavigated", count_navigation)
 
 
 async def _fetch(

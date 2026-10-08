@@ -1,0 +1,37 @@
+meta {
+  name: Add field start_date
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{englishStandupEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "(concat(.//time[@class='event-time-localized-start']/@datetime, ' ', substring('0', 1, number((substring-before(.//time[@class='event-time-localized-start'], ':') mod 12 + 12 * number(contains(.//time[@class='event-time-localized-start'], 'PM'))) < 10)), (substring-before(.//time[@class='event-time-localized-start'], ':') mod 12 + 12 * number(contains(.//time[@class='event-time-localized-start'], 'PM'))), ':', substring(substring-after(.//time[@class='event-time-localized-start'], ':'), 1, 2), ':00'))",
+    "type": "value",
+    "title": "start_date",
+    "parent_selector_id": "{{englishStandupIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Start, `YYYY-MM-DD HH:MM:SS`.
+  The page shows the time on a 12-hour clock (`8:30 PM`, whatever
+  `Accept-Language` says) and the date in the `<time>` element's
+  `datetime` (`2026-10-16`). XPath 1.0 turns both into
+  `2026-10-16 20:30:00`: the hour `mod 12`, plus 12 when the text holds
+  `PM` (so 12 AM is 00 and 12 PM is 12), padded to two digits, then the
+  minutes. Local time, `Europe/Madrid`. The outer parentheses make the
+  engine read the path as XPath.
+}

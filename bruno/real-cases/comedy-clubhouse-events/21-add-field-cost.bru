@@ -1,0 +1,31 @@
+meta {
+  name: Add field cost
+  type: http
+  seq: 21
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{comedyClubhouseEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "cost",
+    "type": "value",
+    "title": "cost",
+    "parent_selector_id": "{{comedyClubhouseIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The price as the site shows it (`Free`, `&euro;10,00 – &euro;12,00`);
+  empty when the event lists no price. See `price_min` / `price_max`.
+}

@@ -1,0 +1,32 @@
+meta {
+  name: Add the events iterator
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{comedyClubhouseEventsTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "events[]",
+    "type": "iterator"
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("comedyClubhouseIteratorId", res.body.id);
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  One `events` row per event of the response.
+}

@@ -1,0 +1,194 @@
+{
+  "realm": "night-crawler",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 300,
+  "roles": {
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Manages users and every Crawler."
+      },
+      {
+        "name": "user",
+        "description": "Creates and runs Crawlers."
+      },
+      {
+        "name": "viewer",
+        "description": "Reads Crawlers and their runs."
+      },
+      {
+        "name": "offline_access",
+        "description": "Lets a client keep an offline refresh token."
+      },
+      {
+        "name": "uma_authorization",
+        "description": "Keycloak's built-in UMA role."
+      },
+      {
+        "name": "default-roles-night-crawler",
+        "description": "Granted to every new account.",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "offline_access",
+            "uma_authorization",
+            "user"
+          ]
+        }
+      }
+    ]
+  },
+  "defaultRole": {
+    "name": "default-roles-night-crawler"
+  },
+  "clients": [
+    {
+      "clientId": "night-crawler-ui",
+      "name": "Night Crawler UI",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KC_NIGHT_CRAWLER_UI_SECRET}",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "${KC_NIGHT_CRAWLER_UI_URL}/auth/callback"
+      ],
+      "webOrigins": [
+        "${KC_NIGHT_CRAWLER_UI_URL}"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${KC_NIGHT_CRAWLER_UI_URL}/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "night-crawler-api audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "night-crawler-api",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "night-crawler-api",
+      "name": "Night Crawler API",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KC_NIGHT_CRAWLER_API_SECRET}",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true
+    },
+    {
+      "clientId": "importer-ui",
+      "name": "Night Crawler Importer UI",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KC_IMPORTER_UI_SECRET}",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "${KC_IMPORTER_UI_URL}/auth/callback"
+      ],
+      "webOrigins": [
+        "${KC_IMPORTER_UI_URL}"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${KC_IMPORTER_UI_URL}/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "importer-api audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "importer-api",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "importer-api",
+      "name": "Night Crawler Importer API",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KC_IMPORTER_API_SECRET}",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true
+    }
+  ],
+  "users": [
+    {
+      "username": "${KC_SEED_ADMIN_EMAIL}",
+      "email": "${KC_SEED_ADMIN_EMAIL}",
+      "emailVerified": true,
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${KC_SEED_ADMIN_PASSWORD}",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-night-crawler",
+        "admin"
+      ],
+      "firstName": "Night Crawler",
+      "lastName": "Admin"
+    },
+    {
+      "username": "service-account-night-crawler-api",
+      "enabled": true,
+      "serviceAccountClientId": "night-crawler-api",
+      "clientRoles": {
+        "realm-management": [
+          "view-users",
+          "manage-users",
+          "query-users",
+          "view-realm"
+        ]
+      }
+    },
+    {
+      "username": "service-account-importer-api",
+      "enabled": true,
+      "serviceAccountClientId": "importer-api",
+      "clientRoles": {
+        "realm-management": [
+          "view-users",
+          "manage-users",
+          "query-users",
+          "view-realm"
+        ]
+      }
+    }
+  ]
+}

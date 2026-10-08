@@ -270,11 +270,15 @@ async def _acquire(
     run: TemplateRun,
     targets: tuple[RateLimitTarget, ...],
 ) -> None:
-    """Wait on each rate limit in turn; log any wait."""
+    """Wait on each rate limit in turn; log any wait at debug level.
+
+    Waits are routine pacing, and the rate limiter's metrics and spans
+    already record each one (docs/ARCHITECTURE.md#observability).
+    """
     for target in targets:
         waited = await rate_limiter.acquire(target)
         if waited:
-            logger.info(
+            logger.debug(
                 "Rate limited: execution_id=%s, url=%s, key=%s, wait=%.1fs",
                 plan.execution.id,
                 run.rendered.url,

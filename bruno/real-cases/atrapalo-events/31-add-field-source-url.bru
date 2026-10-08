@@ -1,0 +1,31 @@
+meta {
+  name: Add field source_url
+  type: http
+  seq: 31
+}
+
+post {
+  url: {{baseUrl}}/api/templates/{{atrapaloShowTemplateId}}/selectors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "path": "join('', ['https://www.atrapalo.com', placeholder('show_path'), '#', startDate])",
+    "type": "value",
+    "title": "source_url",
+    "parent_selector_id": "{{atrapaloEventsIteratorId}}"
+  }
+}
+
+tests {
+  test("returns 201", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  The show's page plus `#{startDate}`, so each performance stays
+  unique; the fragment doesn't select the date on the site.
+}

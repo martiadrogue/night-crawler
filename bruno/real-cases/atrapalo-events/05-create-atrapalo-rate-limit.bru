@@ -1,0 +1,52 @@
+meta {
+  name: Find or create the www.atrapalo.com rate limit
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/rate-limits
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "www.atrapalo.com",
+    "rate_limit_string": "20/minute",
+    "penalty_step_seconds": 30,
+    "max_penalty_seconds": 300,
+    "decay_after_successes": 10,
+    "decay_step_seconds": 30
+  }
+}
+
+script:pre-request {
+  // One rule per domain, named after it: reuse it when it exists.
+  const existing = await bru.sendRequest({
+    method: "GET",
+    url: `${bru.getEnvVar("baseUrl")}/api/rate-limits`,
+    headers: { Authorization: `Bearer ${bru.getEnvVar("token")}` },
+  });
+  const rule = existing.data.find((item) => item.name === "www.atrapalo.com");
+  if (rule) {
+    bru.setEnvVar("atrapaloRateLimitId", rule.id);
+    bru.runner.skipRequest();
+  }
+}
+
+script:post-response {
+  bru.setEnvVar("atrapaloRateLimitId", res.body.id);
+}
+
+tests {
+  test("creates the domain's rule", function () {
+    expect(res.status).to.equal(201);
+  });
+}
+
+docs {
+  Named after its domain and reused when it already exists. Slow on
+  purpose: at most one page every 3 seconds (`20/minute`), and a block
+  (429) backs off 30 seconds more each time, up to 5 minutes.
+}
